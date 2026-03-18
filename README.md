@@ -1,131 +1,118 @@
-# AI CLI Chatbot
+# 🧠 Local AI CLI Chatbot (LM Studio + Python + SQLite)
 
-A simple command-line chatbot built with Python and an LLM API.
+## 📌 Project Status
 
-This project is the first step in learning AI Application Engineering.  
-It demonstrates how a software application can interact with a Large Language Model (LLM) through an API to generate responses.
+🚧 This project is currently under active development.
 
----
+The goal is to build a **local AI application** with:
 
-# Project Goal
-
-The goal of this project is to understand the basic workflow of an AI-powered application:
-
-1. Accept user input  
-2. Send a request to an LLM API  
-3. Receive an AI-generated response  
-4. Display the response in the terminal  
-
-This project focuses on the core interaction pattern between an application and an LLM.
+* Local LLM inference (LM Studio)
+* Persistent chat history (SQLite)
+* Clean and extensible architecture
 
 ---
 
-# Tech Stack
+## 📖 Overview
 
-- Python  
-- OpenAI-compatible API  
-- python-dotenv  
+This is a **local AI chatbot** that runs entirely on your machine.
 
----
+Key characteristics:
 
-# Features
-
-- Command-line chatbot interface  
-- Sends user prompts to an LLM  
-- Displays AI-generated responses  
-- Uses environment variables for API key management  
-- Basic prompt structure with system and user roles  
+* No external API dependency
+* Uses a locally hosted LLM via LM Studio
+* Stores chat history in SQLite
+* Designed as a foundation for future AI features (e.g., RAG)
 
 ---
 
-# Project Structure
+## 🏗️ Current Architecture
 
-ai-cli-chatbot/
-
-├── ai_chat.py  
-├── requirements.txt  
-├── .gitignore  
-└── README.md  
-
----
-
-# Setup
-
-## 1 Install dependencies
-
-pip install -r requirements.txt
+```text
+User Input
+   ↓
+Python CLI (app.py)
+   ↓
+LM Studio (local API server)
+   ↓
+Local LLM response
+   ↓
+SQLite (chat history)
+```
 
 ---
 
-## 2 Create a .env file
+## 📁 Project Structure
 
-Create a file named `.env` in the project root:
-
-OPENAI_API_KEY=your_api_key_here  
-OPENAI_BASE_URL=your_api_base_url_here  
-MODEL_NAME=your_model_name_here  
-
-Example:
-
-OPENAI_API_KEY=sk-xxxx  
-OPENAI_BASE_URL=https://api.openai.com/v1  
-MODEL_NAME=gpt-4o-mini  
-
----
-
-## 3 Run the chatbot
-
-python ai_chat.py
-
-Example interaction:
-
-AI CLI Chatbot started.
-
-You: explain docker  
-AI: Docker is a platform that allows developers to package applications into containers...
+```text
+.
+├── app.py
+├── config.py
+├── db.py
+├── data/                # runtime data (not tracked)
+├── requirements.txt
+├── README.md
+└── .gitignore
+```
 
 ---
 
-# How It Works
+## ⚙️ Configuration
 
-The application follows this flow:
+Environment variables are managed via `.env`:
 
-User Input  
-↓  
-Python Application  
-↓  
-LLM API Request  
-↓  
-AI Generated Response  
-↓  
-Display in Terminal  
+```env
+OPENAI_BASE_URL=http://localhost:1234/v1
+OPENAI_API_KEY=lm-studio
+MODEL_NAME=your-local-model-name
+DB_PATH=data/chat_store.db
+SESSION_ID=default
+```
 
 ---
 
-# Learning Outcomes
+## 🧩 Tech Stack
 
-This project helps understand:
-
-- What a Large Language Model (LLM) is  
-- How applications call an LLM API  
-- The structure of AI prompts  
-- The role of system and user messages  
-- Basic AI application architecture  
+* Python
+* OpenAI Python SDK (OpenAI-compatible API)
+* LM Studio (local LLM)
+* SQLite
 
 ---
 
-# Future Improvements
+## 💾 Data Handling
 
-Possible upgrades:
+* Chat history is stored locally in:
 
-- Add conversation history (memory)  
-- Support streaming responses  
-- Add configuration options  
-- Build a web interface  
-- Extend to a RAG-based chatbot  
+  ```
+  data/chat_store.db
+  ```
+
+* The `data/` directory is excluded from version control.
 
 ---
 
-# License
+## 🔐 Privacy
 
-This project is for educational purposes.
+* All processing is done locally
+* No external API calls
+* No data leaves the machine
+
+---
+
+## 🎯 Next Steps
+
+* [ ] Connect to LM Studio and verify local inference
+* [ ] Improve error handling
+* [ ] Support multi-session chat
+* [ ] Add streaming responses
+* [ ] Prepare for RAG (embeddings + retrieval)
+
+---
+
+## 📝 Notes
+
+This project is part of a learning path toward becoming an **AI Application Engineer**, focusing on:
+
+* Real-world architecture
+* Local-first AI systems
+* Clean code and project structure
