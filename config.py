@@ -9,5 +9,7 @@ API_KEY = os.getenv("OPENAI_API_KEY", "lm-studio")
 DB_PATH = os.getenv("DB_PATH", "data/chat_store.db")
 SESSION_ID = os.getenv("SESSION_ID", "default")
 
-# Ensure data directory exists
-os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+# Ensure the database directory exists before runtime
+db_dir = os.path.dirname(DB_PATH)
+if db_dir:
+    os.makedirs(db_dir, exist_ok=True)

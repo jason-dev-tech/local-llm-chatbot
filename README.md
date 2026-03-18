@@ -1,31 +1,35 @@
-# 🧠 Local AI CLI Chatbot (LM Studio + Python + SQLite)
+# 🧠 Local AI CLI Chatbot
+
+A local-first AI chatbot built with Python, LM Studio, and SQLite.
+
+---
 
 ## 📌 Project Status
 
 🚧 This project is currently under active development.
 
-The goal is to build a **local AI application** with:
+The current version focuses on:
 
-* Local LLM inference (LM Studio)
-* Persistent chat history (SQLite)
-* Clean and extensible architecture
+- connecting a Python CLI app to a locally hosted LLM via LM Studio
+- storing chat history in SQLite
+- maintaining a clean and extensible project structure
 
 ---
 
 ## 📖 Overview
 
-This is a **local AI chatbot** that runs entirely on your machine.
+This project is a local AI chatbot that runs on your machine and communicates with a locally hosted language model via an OpenAI-compatible API provided by LM Studio.
 
 Key characteristics:
 
-* No external API dependency
-* Uses a locally hosted LLM via LM Studio
-* Stores chat history in SQLite
-* Designed as a foundation for future AI features (e.g., RAG)
+- local LLM inference through LM Studio  
+- persistent chat history using SQLite  
+- no dependency on third-party cloud LLM APIs  
+- designed as a foundation for future AI features such as retrieval and RAG  
 
 ---
 
-## 🏗️ Current Architecture
+## 🏗️ Architecture
 
 ```text
 User Input
@@ -48,9 +52,10 @@ SQLite (chat history)
 ├── app.py
 ├── config.py
 ├── db.py
-├── data/                # runtime data (not tracked)
+├── data/                # runtime data (not tracked by Git)
 ├── requirements.txt
 ├── README.md
+├── .env.example
 └── .gitignore
 ```
 
@@ -58,61 +63,112 @@ SQLite (chat history)
 
 ## ⚙️ Configuration
 
-Environment variables are managed via `.env`:
+Environment variables are managed via `.env`.
+
+### Step 1: Create `.env`
+
+```bash
+cp .env.example .env
+```
+
+### Step 2: Configure values
 
 ```env
 OPENAI_BASE_URL=http://localhost:1234/v1
 OPENAI_API_KEY=lm-studio
-MODEL_NAME=your-local-model-name
+MODEL_NAME=qwen2.5-7b-instruct
 DB_PATH=data/chat_store.db
 SESSION_ID=default
 ```
+
+### Variable Explanation
+
+- **OPENAI_BASE_URL**  
+  Local OpenAI-compatible endpoint exposed by LM Studio
+
+- **OPENAI_API_KEY**  
+  Placeholder value required by the OpenAI client
+
+- **MODEL_NAME**  
+  The model name served by LM Studio
+
+- **DB_PATH**  
+  Path to the local SQLite database
+
+- **SESSION_ID**  
+  Identifier for the current chat session
 
 ---
 
 ## 🧩 Tech Stack
 
-* Python
-* OpenAI Python SDK (OpenAI-compatible API)
-* LM Studio (local LLM)
-* SQLite
+- Python  
+- OpenAI Python SDK (OpenAI-compatible API)  
+- LM Studio  
+- SQLite  
+- python-dotenv  
 
 ---
 
 ## 💾 Data Handling
 
-* Chat history is stored locally in:
+- Chat history is stored locally in:
 
   ```
   data/chat_store.db
   ```
 
-* The `data/` directory is excluded from version control.
+- The `data/` directory is treated as runtime data and excluded from version control.
 
 ---
 
 ## 🔐 Privacy
 
-* All processing is done locally
-* No external API calls
-* No data leaves the machine
+- All inference is performed locally through LM Studio  
+- Chat data is stored locally in SQLite  
+- No third-party cloud LLM service is required  
 
 ---
 
-## 🎯 Next Steps
+## 🚀 Getting Started
 
-* [ ] Connect to LM Studio and verify local inference
-* [ ] Improve error handling
-* [ ] Support multi-session chat
-* [ ] Add streaming responses
-* [ ] Prepare for RAG (embeddings + retrieval)
+### 1. Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Start LM Studio
+
+- Load your model in LM Studio  
+- Start the local server (default: http://localhost:1234)  
+
+### 3. Run the chatbot
+
+```bash
+python app.py
+```
 
 ---
 
-## 📝 Notes
+## 🎯 Development Roadmap
+
+Planned improvements:
+
+- [ ] Verify and improve LM Studio integration  
+- [ ] Improve error handling  
+- [ ] Support multi-session chat  
+- [ ] Add streaming responses  
+- [ ] Add embeddings and retrieval  
+- [ ] Evolve into a local RAG system  
+
+---
+
+## 📝 Learning Goal
 
 This project is part of a learning path toward becoming an **AI Application Engineer**, focusing on:
 
-* Real-world architecture
-* Local-first AI systems
-* Clean code and project structure
+- local-first AI systems  
+- practical LLM integration  
+- clean software architecture  
+- real-world AI application development  
