@@ -1,6 +1,14 @@
 from openai import OpenAI
-from config import MODEL_NAME, BASE_URL, API_KEY, SESSION_ID
-from db import init_db, save_message, get_recent_messages
+from config import MODEL_NAME, BASE_URL, API_KEY
+from db import (
+    init_db,
+    save_message,
+    get_recent_messages,
+    get_all_sessions,
+    create_session,
+    update_session_title,
+    get_all_sessions_with_titles
+)
 
 client = OpenAI(
     base_url=BASE_URL,
@@ -10,19 +18,69 @@ client = OpenAI(
 SYSTEM_PROMPT = "You are a helpful assistant. Answer clearly and concisely."
 
 
-def build_messages():
-    history = get_recent_messages(SESSION_ID, limit=10)
+def build_messages(session_id):
+    history = get_recent_messages(session_id, limit=10)
     return [{"role": "system", "content": SYSTEM_PROMPT}] + history
 
 
-def print_history():
-    history = get_recent_messages(SESSION_ID, limit=20)
+def generate_new_session_id():
+    sessions = get_all_sessions()
+
+    if not sessions:
+        return "session_1"
+
+    numbers = []
+    for s in sessions:
+        if s.startswith("session_"):
+            suffix = s.replace("session_", "")
+            if suffix.isdigit():
+                numbers.append(int(suffix))
+
+    return f"session_{max(numbers) + 1}" if numbers else "session_1"
+
+
+def get_initial_session():
+    sessions = get_all_sessions()
+    return sessions[-1] if sessions else "session_1"
+
+
+def generate_session_title(user_input):
+    prompt = [
+        {"role": "system", "content": "Generate a short title (max 5 words) for this conversation."},
+        {"role": "user", "content": user_input}
+    ]
+
+    response = client.chat.completions.create(
+        model=MODEL_NAME,
+        messages=prompt
+    )
+
+    return response.choices[0].message.content.strip()
+
+
+def print_sessions(current_session):
+    sessions = get_all_sessions_with_titles()
+
+    if not sessions:
+        print("No sessions found.\n")
+        return
+
+    print("\nSessions:")
+    for session_id, title in sessions:
+        name = title if title else session_id
+        marker = " (current)" if session_id == current_session else ""
+        print(f"- {name} [{session_id}]{marker}")
+    print()
+
+
+def print_history(session_id):
+    history = get_recent_messages(session_id, limit=20)
 
     if not history:
         print("No chat history found.\n")
         return
 
-    print("\nRecent chat history:")
+    print(f"\nRecent chat history for session: {session_id}")
     for message in history:
         speaker = "You" if message["role"] == "user" else "AI"
         print(f"{speaker}: {message['content']}")
@@ -32,26 +90,58 @@ def print_history():
 def main():
     init_db()
 
+    current_session = get_initial_session()
+    create_session(current_session)
+
     print("Local AI CLI Chatbot started.")
-    print("Commands: /history, exit\n")
+    print("Commands: /new, /list, /switch <session_id>, /history, exit")
+    print(f"Current session: {current_session}\n")
 
     while True:
-        user_input = input("You: ").strip()
+        user_input = input(f"[{current_session}] You: ").strip()
 
         if user_input.lower() == "exit":
             print("Goodbye!")
             break
 
+        if user_input == "/list":
+            print_sessions(current_session)
+            continue
+
         if user_input == "/history":
-            print_history()
+            print_history(current_session)
+            continue
+
+        if user_input == "/new":
+            current_session = generate_new_session_id()
+            create_session(current_session)
+            print(f"Switched to new session: {current_session}\n")
+            continue
+
+        if user_input.startswith("/switch "):
+            target = user_input.split(maxsplit=1)[1].strip()
+            sessions = get_all_sessions()
+
+            if target not in sessions:
+                print("Session not found.\n")
+            else:
+                current_session = target
+                print(f"Switched to session: {current_session}\n")
+
             continue
 
         if not user_input:
             print("Please enter something.\n")
             continue
 
-        save_message(SESSION_ID, "user", user_input)
-        messages = build_messages()
+        save_message(current_session, "user", user_input)
+
+        history = get_recent_messages(current_session, limit=1)
+        if len(history) == 1:
+            title = generate_session_title(user_input)
+            update_session_title(current_session, title)
+
+        messages = build_messages(current_session)
 
         try:
             stream = client.chat.completions.create(
@@ -61,7 +151,6 @@ def main():
             )
 
             print("AI: ", end="", flush=True)
-
             answer_parts = []
 
             for chunk in stream:
@@ -75,7 +164,7 @@ def main():
             answer = "".join(answer_parts)
             print("\n")
 
-            save_message(SESSION_ID, "assistant", answer)
+            save_message(current_session, "assistant", answer)
 
         except Exception as e:
             print(f"\nError: {e}\n")

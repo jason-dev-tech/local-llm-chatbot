@@ -20,6 +20,14 @@ def init_db():
         )
     """)
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS sessions (
+            session_id TEXT PRIMARY KEY,
+            title TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -55,3 +63,62 @@ def get_recent_messages(session_id, limit=10):
     rows.reverse()
 
     return [{"role": role, "content": content} for role, content in rows]
+
+
+def create_session(session_id, title=None):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT OR IGNORE INTO sessions (session_id, title)
+        VALUES (?, ?)
+    """, (session_id, title))
+
+    conn.commit()
+    conn.close()
+
+
+def update_session_title(session_id, title):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        UPDATE sessions
+        SET title = ?
+        WHERE session_id = ?
+    """, (title, session_id))
+
+    conn.commit()
+    conn.close()
+
+
+def get_all_sessions():
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT DISTINCT session_id
+        FROM messages
+        ORDER BY session_id
+    """)
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    return [row[0] for row in rows]
+
+
+def get_all_sessions_with_titles():
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT session_id, title
+        FROM sessions
+        ORDER BY created_at
+    """)
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    return rows
