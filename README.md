@@ -6,26 +6,39 @@ A local-first AI chatbot built with Python, LM Studio, and SQLite.
 
 ## 📌 Project Status
 
-🚧 This project is currently under active development.
+🚧 This project is under active development.
 
-The current version focuses on:
+Current focus:
 
-- connecting a Python CLI app to a locally hosted LLM via LM Studio
-- storing chat history in SQLite
-- maintaining a clean and extensible project structure
+- Local LLM integration via LM Studio
+- Streaming chat experience
+- Persistent chat history
+- Clean and extensible architecture
 
 ---
 
 ## 📖 Overview
 
-This project is a local AI chatbot that runs on your machine and communicates with a locally hosted language model via an OpenAI-compatible API provided by LM Studio.
+This project is a **local AI chatbot** that runs entirely on your machine and communicates with a locally hosted language model through an OpenAI-compatible API.
 
-Key characteristics:
+### Key Characteristics
 
-- local LLM inference through LM Studio  
-- persistent chat history using SQLite  
-- no dependency on third-party cloud LLM APIs  
-- designed as a foundation for future AI features such as retrieval and RAG  
+- Runs fully locally (no cloud dependency)
+- Uses LM Studio as the LLM runtime
+- Stores chat history in SQLite
+- Supports real-time streaming responses
+- Designed for future RAG and AI system extensions
+
+---
+
+## ✨ Features
+
+- Local LLM inference via LM Studio
+- OpenAI-compatible API integration
+- Interactive CLI chatbot
+- Streaming responses (real-time output)
+- Persistent chat history (SQLite)
+- Session-based conversation handling (single session)
 
 ---
 
@@ -38,9 +51,9 @@ Python CLI (app.py)
    ↓
 LM Studio (local API server)
    ↓
-Local LLM response
+Streaming LLM response
    ↓
-SQLite (chat history)
+SQLite (chat history persistence)
 ```
 
 ---
@@ -52,7 +65,7 @@ SQLite (chat history)
 ├── app.py
 ├── config.py
 ├── db.py
-├── data/                # runtime data (not tracked by Git)
+├── data/                # runtime data (not tracked)
 ├── requirements.txt
 ├── README.md
 ├── .env.example
@@ -65,85 +78,63 @@ SQLite (chat history)
 
 Environment variables are managed via `.env`.
 
-### Step 1: Create `.env`
-
-```bash
-cp .env.example .env
-```
-
-### Step 2: Configure values
+Example:
 
 ```env
 OPENAI_BASE_URL=http://localhost:1234/v1
 OPENAI_API_KEY=lm-studio
-MODEL_NAME=qwen2.5-7b-instruct
+MODEL_NAME=meta-llama-3.1-8b-instruct
 DB_PATH=data/chat_store.db
 SESSION_ID=default
 ```
-
-### Variable Explanation
-
-- **OPENAI_BASE_URL**  
-  Local OpenAI-compatible endpoint exposed by LM Studio
-
-- **OPENAI_API_KEY**  
-  Placeholder value required by the OpenAI client
-
-- **MODEL_NAME**  
-  The model name served by LM Studio
-
-- **DB_PATH**  
-  Path to the local SQLite database
-
-- **SESSION_ID**  
-  Identifier for the current chat session
-
----
-
-## 🧩 Tech Stack
-
-- Python  
-- OpenAI Python SDK (OpenAI-compatible API)  
-- LM Studio  
-- SQLite  
-- python-dotenv  
-
----
-
-## 💾 Data Handling
-
-- Chat history is stored locally in:
-
-  ```
-  data/chat_store.db
-  ```
-
-- The `data/` directory is treated as runtime data and excluded from version control.
-
----
-
-## 🔐 Privacy
-
-- All inference is performed locally through LM Studio  
-- Chat data is stored locally in SQLite  
-- No third-party cloud LLM service is required  
 
 ---
 
 ## 🚀 Getting Started
 
-### 1. Install dependencies
+### 1. Clone the repository
+
+```bash
+git clone <your-repo-url>
+cd ai-cli-chatbot
+```
+
+### 2. Create virtual environment
+
+```bash
+python3 -m venv .venv
+```
+
+### 3. Activate environment
+
+```bash
+source .venv/bin/activate
+```
+
+### 4. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Start LM Studio
+### 5. Setup environment variables
 
-- Load your model in LM Studio  
-- Start the local server (default: http://localhost:1234)  
+```bash
+cp .env.example .env
+```
 
-### 3. Run the chatbot
+Update `.env`:
+
+```env
+MODEL_NAME=meta-llama-3.1-8b-instruct
+```
+
+### 6. Start LM Studio
+
+- Load your model
+- Start local server (`http://localhost:1234`)
+
+### 7. Run the chatbot
 
 ```bash
 python app.py
@@ -151,24 +142,87 @@ python app.py
 
 ---
 
-## 🎯 Development Roadmap
+## 💬 Usage
 
-Planned improvements:
+```text
+You: Hello
+AI: Hello! How can I assist you today?
+```
 
-- [ ] Verify and improve LM Studio integration  
-- [ ] Improve error handling  
-- [ ] Support multi-session chat  
-- [ ] Add streaming responses  
-- [ ] Add embeddings and retrieval  
-- [ ] Evolve into a local RAG system  
+### Commands
+
+- `exit` → Quit chatbot
+- `/history` → Show recent chat history
+
+---
+
+## 💾 Data Storage
+
+- Chat history is stored in:
+
+```text
+data/chat_store.db
+```
+
+- Data is local-only and not tracked by Git.
+
+---
+
+## 🔐 Privacy
+
+- All inference runs locally
+- No external API calls
+- No data leaves your machine
+
+---
+
+## 🧩 Tech Stack
+
+- Python
+- OpenAI Python SDK
+- LM Studio
+- SQLite
+- python-dotenv
+
+---
+
+## 🚀 Development Roadmap
+
+### ✅ Completed
+
+- [x] Local LLM integration (LM Studio)
+- [x] CLI chatbot
+- [x] SQLite chat persistence
+- [x] Streaming responses
+
+### 🔜 Planned
+
+- [ ] Multi-session support
+- [ ] Embeddings + Retrieval (RAG)
+- [ ] Web UI (FastAPI + frontend)
+- [ ] Prompt optimization
+- [ ] Chat export / logging
+
+---
+
+## 💡 Why This Project
+
+This project demonstrates how to build a **local-first AI application** without relying on external APIs.
+
+It focuses on:
+
+- privacy-first AI architecture
+- cost-free LLM usage
+- real-time user experience
+- scalable design for future AI systems
 
 ---
 
 ## 📝 Learning Goal
 
-This project is part of a learning path toward becoming an **AI Application Engineer**, focusing on:
+Part of a learning path toward becoming an **AI Application Engineer**, focusing on:
 
-- local-first AI systems  
-- practical LLM integration  
-- clean software architecture  
-- real-world AI application development  
+- LLM integration
+- real-world AI system design
+- maintainable Python architecture
+- production-ready patterns
