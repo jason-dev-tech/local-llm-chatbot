@@ -122,3 +122,54 @@ def get_all_sessions_with_titles():
     conn.close()
 
     return rows
+
+
+def session_exists(session_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT 1
+        FROM sessions
+        WHERE session_id = ?
+        LIMIT 1
+    """, (session_id,))
+
+    row = cursor.fetchone()
+    conn.close()
+
+    return row is not None
+
+
+def delete_session(session_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        DELETE FROM messages
+        WHERE session_id = ?
+    """, (session_id,))
+
+    cursor.execute("""
+        DELETE FROM sessions
+        WHERE session_id = ?
+    """, (session_id,))
+
+    conn.commit()
+    conn.close()
+
+
+def get_session_title(session_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT title
+        FROM sessions
+        WHERE session_id = ?
+    """, (session_id,))
+
+    row = cursor.fetchone()
+    conn.close()
+
+    return row[0] if row else None

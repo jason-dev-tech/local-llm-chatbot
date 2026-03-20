@@ -7,7 +7,9 @@ from db import (
     get_all_sessions,
     create_session,
     update_session_title,
-    get_all_sessions_with_titles
+    get_all_sessions_with_titles,
+    session_exists,
+    delete_session,
 )
 
 client = OpenAI(
@@ -30,9 +32,9 @@ def generate_new_session_id():
         return "session_1"
 
     numbers = []
-    for s in sessions:
-        if s.startswith("session_"):
-            suffix = s.replace("session_", "")
+    for session in sessions:
+        if session.startswith("session_"):
+            suffix = session.replace("session_", "")
             if suffix.isdigit():
                 numbers.append(int(suffix))
 
@@ -46,8 +48,14 @@ def get_initial_session():
 
 def generate_session_title(user_input):
     prompt = [
-        {"role": "system", "content": "Generate a short title (max 5 words) for this conversation."},
-        {"role": "user", "content": user_input}
+        {
+            "role": "system",
+            "content": "Generate a short title of at most 5 words for this conversation."
+        },
+        {
+            "role": "user",
+            "content": user_input
+        }
     ]
 
     response = client.chat.completions.create(
@@ -94,7 +102,7 @@ def main():
     create_session(current_session)
 
     print("Local AI CLI Chatbot started.")
-    print("Commands: /new, /list, /switch <session_id>, /history, exit")
+    print("Commands: /new, /list, /switch <session_id>, /history, /rename <title>, /delete <session_id>, exit")
     print(f"Current session: {current_session}\n")
 
     while True:
@@ -128,6 +136,34 @@ def main():
                 current_session = target
                 print(f"Switched to session: {current_session}\n")
 
+            continue
+
+        if user_input.startswith("/rename "):
+            new_title = user_input.split(maxsplit=1)[1].strip()
+
+            if not new_title:
+                print("Please provide a title.\n")
+            else:
+                update_session_title(current_session, new_title)
+                print(f"Renamed current session to: {new_title}\n")
+
+            continue
+
+        if user_input.startswith("/delete "):
+            target_session = user_input.split(maxsplit=1)[1].strip()
+
+            if not session_exists(target_session):
+                print("Session not found.\n")
+                continue
+
+            delete_session(target_session)
+
+            if target_session == current_session:
+                remaining_sessions = get_all_sessions()
+                current_session = remaining_sessions[-1] if remaining_sessions else "session_1"
+                create_session(current_session)
+
+            print(f"Deleted session: {target_session}\n")
             continue
 
         if not user_input:
