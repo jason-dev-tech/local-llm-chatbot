@@ -8,12 +8,10 @@ from db import (
     delete_session,
     get_session_messages,
 )
-from llm import stream_response, generate_session_title
+from llm import stream_response, generate_session_title, generate_response
 
 SYSTEM_PROMPT = "You are a helpful assistant. Answer clearly and concisely."
 
-
-# ===== Core Chat Logic =====
 
 def build_messages(session_id):
     history = get_recent_messages(session_id, limit=10)
@@ -21,10 +19,8 @@ def build_messages(session_id):
 
 
 def send_message_and_stream(session_id, user_input):
-    # Save user message
     save_message(session_id, "user", user_input)
 
-    # Generate title for first message
     history = get_recent_messages(session_id, limit=1)
     if len(history) == 1:
         try:
@@ -34,7 +30,6 @@ def send_message_and_stream(session_id, user_input):
             pass
 
     messages = build_messages(session_id)
-
     answer_parts = []
 
     for token in stream_response(messages):
@@ -42,15 +37,10 @@ def send_message_and_stream(session_id, user_input):
         yield token
 
     answer = "".join(answer_parts)
-
-    # Save assistant response
     save_message(session_id, "assistant", answer)
 
 
 def send_message(session_id, user_input):
-    """
-    Non-stream version (for FastAPI later)
-    """
     save_message(session_id, "user", user_input)
 
     history = get_recent_messages(session_id, limit=1)
@@ -62,16 +52,11 @@ def send_message(session_id, user_input):
             pass
 
     messages = build_messages(session_id)
-
-    from llm import generate_response
     answer = generate_response(messages)
 
     save_message(session_id, "assistant", answer)
-
     return answer
 
-
-# ===== Session Management =====
 
 def generate_new_session_id():
     sessions = get_all_sessions()
@@ -117,8 +102,6 @@ def remove_session(target_session):
     delete_session(target_session)
     return True
 
-
-# ===== Query (for Web API later) =====
 
 def get_session_detail(session_id):
     if not session_exists(session_id):

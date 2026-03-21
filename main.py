@@ -2,14 +2,12 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from chat_service import create_new_chat_session, send_user_message
-from db import (
-    init_db,
-    list_sessions,
-    get_session,
-    get_session_messages,
-    update_session_title,
-    delete_session,
+from db import init_db, get_all_sessions_with_titles, session_exists, get_session_messages
+from chat_service import (
+    create_new_session,
+    rename_session,
+    remove_session,
+    send_message,
 )
 
 app = FastAPI(title="Local AI Chatbot API")
@@ -24,17 +22,17 @@ app.add_middleware(
 
 
 class CreateSessionResponse(BaseModel):
-    session_id: int
-    title: str
+    session_id: str
+    title: str | None
 
 
 class ChatRequest(BaseModel):
-    session_id: int
+    session_id: str
     message: str
 
 
 class ChatResponse(BaseModel):
-    session_id: int
+    session_id: str
     reply: str
 
 
@@ -53,40 +51,58 @@ def root():
 
 
 @app.get("/sessions")
-def get_sessions():
-    return {"sessions": list_sessions()}
+def list_sessions():
+    sessions = get_all_sessions_with_titles()
+    return {
+        "sessions": [
+            {
+                "session_id": session_id,
+                "title": title,
+            }
+            for session_id, title in sessions
+        ]
+    }
 
 
 @app.post("/sessions", response_model=CreateSessionResponse)
 def create_session_api():
-    session_id = create_new_chat_session()
-    session = get_session(session_id)
+    session_id = create_new_session()
+    sessions = get_all_sessions_with_titles()
+
+    matched_title = None
+    for sid, title in sessions:
+        if sid == session_id:
+            matched_title = title
+            break
+
     return {
-        "session_id": session["id"],
-        "title": session["title"],
+        "session_id": session_id,
+        "title": matched_title,
     }
 
 
 @app.get("/sessions/{session_id}")
-def get_session_api(session_id: int):
-    session = get_session(session_id)
-    if not session:
+def get_session_detail_api(session_id: str):
+    if not session_exists(session_id):
         raise HTTPException(status_code=404, detail="Session not found")
 
     messages = get_session_messages(session_id)
     return {
-        "session": session,
+        "session_id": session_id,
         "messages": messages,
     }
 
 
 @app.post("/chat", response_model=ChatResponse)
 def chat_api(request: ChatRequest):
-    session = get_session(request.session_id)
-    if not session:
+    if not session_exists(request.session_id):
         raise HTTPException(status_code=404, detail="Session not found")
 
-    reply = send_user_message(request.session_id, request.message)
+    if not request.message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
+    reply = send_message(request.session_id, request.message)
+
     return {
         "session_id": request.session_id,
         "reply": reply,
@@ -94,21 +110,33 @@ def chat_api(request: ChatRequest):
 
 
 @app.patch("/sessions/{session_id}")
-def rename_session_api(session_id: int, request: RenameSessionRequest):
-    session = get_session(session_id)
-    if not session:
+def rename_session_api(session_id: str, request: RenameSessionRequest):
+    if not session_exists(session_id):
         raise HTTPException(status_code=404, detail="Session not found")
 
-    update_session_title(session_id, request.title.strip())
-    updated_session = get_session(session_id)
-    return {"session": updated_session}
+    new_title = request.title.strip()
+    if not new_title:
+        raise HTTPException(status_code=400, detail="Title cannot be empty")
+
+    rename_session(session_id, new_title)
+
+    return {
+        "message": "Session renamed successfully",
+        "session_id": session_id,
+        "title": new_title,
+    }
 
 
 @app.delete("/sessions/{session_id}")
-def delete_session_api(session_id: int):
-    session = get_session(session_id)
-    if not session:
+def delete_session_api(session_id: str):
+    if not session_exists(session_id):
         raise HTTPException(status_code=404, detail="Session not found")
 
-    delete_session(session_id)
-    return {"message": "Session deleted"}
+    deleted = remove_session(session_id)
+    if not deleted:
+        raise HTTPException(status_code=500, detail="Failed to delete session")
+
+    return {
+        "message": "Session deleted successfully",
+        "session_id": session_id,
+    }
