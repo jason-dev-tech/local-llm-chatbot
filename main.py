@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from db import init_db, get_all_sessions_with_titles, session_exists, get_session_messages
@@ -8,6 +9,7 @@ from chat_service import (
     rename_session,
     remove_session,
     send_message,
+    send_message_and_stream,
 )
 
 app = FastAPI(title="Local AI Chatbot API")
@@ -34,6 +36,11 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     session_id: str
     reply: str
+
+
+class ChatStreamRequest(BaseModel):
+    session_id: str
+    message: str
 
 
 class RenameSessionRequest(BaseModel):
@@ -107,6 +114,24 @@ def chat_api(request: ChatRequest):
         "session_id": request.session_id,
         "reply": reply,
     }
+
+
+@app.post("/chat/stream")
+def chat_stream_api(request: ChatStreamRequest):
+    if not session_exists(request.session_id):
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    if not request.message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
+    def event_stream():
+        try:
+            for token in send_message_and_stream(request.session_id, request.message):
+                yield token
+        except Exception as e:
+            yield f"\\n[ERROR] {str(e)}"
+
+    return StreamingResponse(event_stream(), media_type="text/plain")
 
 
 @app.patch("/sessions/{session_id}")
