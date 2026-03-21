@@ -1,69 +1,12 @@
-from openai import OpenAI
-from config import MODEL_NAME, BASE_URL, API_KEY
-from db import (
-    init_db,
-    save_message,
-    get_recent_messages,
-    get_all_sessions,
-    create_session,
-    update_session_title,
-    get_all_sessions_with_titles,
-    session_exists,
-    delete_session,
+from db import init_db, get_all_sessions_with_titles, get_recent_messages, create_session
+from chat_service import (
+    get_initial_session,
+    create_new_session,
+    switch_session,
+    rename_session,
+    remove_session,
+    send_message_and_stream,
 )
-
-client = OpenAI(
-    base_url=BASE_URL,
-    api_key=API_KEY
-)
-
-SYSTEM_PROMPT = "You are a helpful assistant. Answer clearly and concisely."
-
-
-def build_messages(session_id):
-    history = get_recent_messages(session_id, limit=10)
-    return [{"role": "system", "content": SYSTEM_PROMPT}] + history
-
-
-def generate_new_session_id():
-    sessions = get_all_sessions()
-
-    if not sessions:
-        return "session_1"
-
-    numbers = []
-    for session in sessions:
-        if session.startswith("session_"):
-            suffix = session.replace("session_", "")
-            if suffix.isdigit():
-                numbers.append(int(suffix))
-
-    return f"session_{max(numbers) + 1}" if numbers else "session_1"
-
-
-def get_initial_session():
-    sessions = get_all_sessions()
-    return sessions[-1] if sessions else "session_1"
-
-
-def generate_session_title(user_input):
-    prompt = [
-        {
-            "role": "system",
-            "content": "Generate a short title of at most 5 words for this conversation."
-        },
-        {
-            "role": "user",
-            "content": user_input
-        }
-    ]
-
-    response = client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=prompt
-    )
-
-    return response.choices[0].message.content.strip()
 
 
 def print_sessions(current_session):
@@ -121,19 +64,18 @@ def main():
             continue
 
         if user_input == "/new":
-            current_session = generate_new_session_id()
-            create_session(current_session)
+            current_session = create_new_session()
             print(f"Switched to new session: {current_session}\n")
             continue
 
         if user_input.startswith("/switch "):
             target = user_input.split(maxsplit=1)[1].strip()
-            sessions = get_all_sessions()
+            switched = switch_session(target)
 
-            if target not in sessions:
+            if not switched:
                 print("Session not found.\n")
             else:
-                current_session = target
+                current_session = switched
                 print(f"Switched to session: {current_session}\n")
 
             continue
@@ -144,24 +86,26 @@ def main():
             if not new_title:
                 print("Please provide a title.\n")
             else:
-                update_session_title(current_session, new_title)
+                rename_session(current_session, new_title)
                 print(f"Renamed current session to: {new_title}\n")
 
             continue
 
         if user_input.startswith("/delete "):
             target_session = user_input.split(maxsplit=1)[1].strip()
+            deleted = remove_session(target_session)
 
-            if not session_exists(target_session):
+            if not deleted:
                 print("Session not found.\n")
                 continue
 
-            delete_session(target_session)
-
             if target_session == current_session:
-                remaining_sessions = get_all_sessions()
-                current_session = remaining_sessions[-1] if remaining_sessions else "session_1"
-                create_session(current_session)
+                remaining_sessions = get_all_sessions_with_titles()
+                if remaining_sessions:
+                    current_session = remaining_sessions[-1][0]
+                else:
+                    current_session = "session_1"
+                    create_session(current_session)
 
             print(f"Deleted session: {target_session}\n")
             continue
@@ -170,37 +114,13 @@ def main():
             print("Please enter something.\n")
             continue
 
-        save_message(current_session, "user", user_input)
-
-        history = get_recent_messages(current_session, limit=1)
-        if len(history) == 1:
-            title = generate_session_title(user_input)
-            update_session_title(current_session, title)
-
-        messages = build_messages(current_session)
-
         try:
-            stream = client.chat.completions.create(
-                model=MODEL_NAME,
-                messages=messages,
-                stream=True
-            )
-
             print("AI: ", end="", flush=True)
-            answer_parts = []
 
-            for chunk in stream:
-                delta = chunk.choices[0].delta
-                content = delta.content or ""
+            for token in send_message_and_stream(current_session, user_input):
+                print(token, end="", flush=True)
 
-                if content:
-                    print(content, end="", flush=True)
-                    answer_parts.append(content)
-
-            answer = "".join(answer_parts)
             print("\n")
-
-            save_message(current_session, "assistant", answer)
 
         except Exception as e:
             print(f"\nError: {e}\n")

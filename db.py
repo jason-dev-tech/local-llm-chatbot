@@ -3,7 +3,9 @@ from config import DB_PATH
 
 
 def get_connection():
-    return sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 
 def init_db():
@@ -11,20 +13,21 @@ def init_db():
     cursor = conn.cursor()
 
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id TEXT NOT NULL,
-            role TEXT NOT NULL,
-            content TEXT NOT NULL,
+        CREATE TABLE IF NOT EXISTS sessions (
+            session_id TEXT PRIMARY KEY,
+            title TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS sessions (
-            session_id TEXT PRIMARY KEY,
-            title TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            role TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (session_id) REFERENCES sessions(session_id)
         )
     """)
 
@@ -60,9 +63,41 @@ def get_recent_messages(session_id, limit=10):
     rows = cursor.fetchall()
     conn.close()
 
+    rows = list(rows)
     rows.reverse()
 
-    return [{"role": role, "content": content} for role, content in rows]
+    return [
+        {
+            "role": row["role"],
+            "content": row["content"],
+        }
+        for row in rows
+    ]
+
+
+def get_session_messages(session_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT id, role, content, created_at
+        FROM messages
+        WHERE session_id = ?
+        ORDER BY id ASC
+    """, (session_id,))
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    return [
+        {
+            "id": row["id"],
+            "role": row["role"],
+            "content": row["content"],
+            "created_at": row["created_at"],
+        }
+        for row in rows
+    ]
 
 
 def create_session(session_id, title=None):
@@ -97,15 +132,15 @@ def get_all_sessions():
     cursor = conn.cursor()
 
     cursor.execute("""
-        SELECT DISTINCT session_id
-        FROM messages
-        ORDER BY session_id
+        SELECT session_id
+        FROM sessions
+        ORDER BY created_at ASC
     """)
 
     rows = cursor.fetchall()
     conn.close()
 
-    return [row[0] for row in rows]
+    return [row["session_id"] for row in rows]
 
 
 def get_all_sessions_with_titles():
@@ -113,15 +148,42 @@ def get_all_sessions_with_titles():
     cursor = conn.cursor()
 
     cursor.execute("""
-        SELECT session_id, title
+        SELECT session_id, title, created_at
         FROM sessions
-        ORDER BY created_at
+        ORDER BY created_at ASC
     """)
 
     rows = cursor.fetchall()
     conn.close()
 
-    return rows
+    return [
+        (row["session_id"], row["title"])
+        for row in rows
+    ]
+
+
+def get_session(session_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT session_id, title, created_at
+        FROM sessions
+        WHERE session_id = ?
+        LIMIT 1
+    """, (session_id,))
+
+    row = cursor.fetchone()
+    conn.close()
+
+    if not row:
+        return None
+
+    return {
+        "session_id": row["session_id"],
+        "title": row["title"],
+        "created_at": row["created_at"],
+    }
 
 
 def session_exists(session_id):
@@ -172,4 +234,4 @@ def get_session_title(session_id):
     row = cursor.fetchone()
     conn.close()
 
-    return row[0] if row else None
+    return row["title"] if row else None
