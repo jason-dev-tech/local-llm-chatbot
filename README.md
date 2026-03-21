@@ -1,71 +1,77 @@
-# 🧠 Local AI CLI Chatbot
+# 🧠 Local AI Chatbot (CLI + FastAPI)
 
-A local-first AI chatbot built with Python, LM Studio, and SQLite.
+A local-first AI chatbot built with Python, LM Studio, SQLite, and FastAPI.
 
 ---
 
 ## 📌 Project Status
 
-🚧 This project is under active development.
+🚧 Actively evolving into a full AI application.
 
-Current focus:
+Current capabilities:
 
 - Local LLM integration via LM Studio
-- Streaming chat experience
+- CLI chatbot interface
+- FastAPI backend API
+- Multi-session chat management
 - Persistent chat history
-- Clean and extensible architecture
+- Streaming-ready architecture
 
 ---
 
 ## 📖 Overview
 
-This project is a **local AI chatbot** that runs entirely on your machine and communicates with a locally hosted language model through an OpenAI-compatible API.
+This project is a **local AI chatbot system** that runs entirely on your machine and communicates with a locally hosted language model via an OpenAI-compatible API.
 
-### Key Characteristics
-
-- Runs fully locally (no cloud dependency)
-- Uses LM Studio as the LLM runtime
-- Stores chat history in SQLite
-- Supports real-time streaming responses
-- Designed for future RAG and AI system extensions
+It started as a CLI chatbot and has been refactored into a **layered backend architecture** with FastAPI support, making it ready for web-based interfaces and future AI extensions such as RAG.
 
 ---
 
 ## ✨ Features
 
-- Local LLM inference via LM Studio
+- Local LLM inference (LM Studio)
 - OpenAI-compatible API integration
-- Interactive CLI chatbot
-- Streaming responses (real-time output)
+- CLI chatbot interface
+- FastAPI backend (REST API)
+- Multi-session conversation support
 - Persistent chat history (SQLite)
-- Session-based conversation handling (single session)
+- Automatic session title generation
+- Clean layered architecture
 
 ---
 
 ## 🏗️ Architecture
 
-```text
-User Input
-   ↓
-Python CLI (app.py)
-   ↓
-LM Studio (local API server)
-   ↓
-Streaming LLM response
-   ↓
-SQLite (chat history persistence)
+```
+            ┌───────────────┐
+            │   CLI / API   │
+            │  (app / main) │
+            └──────┬────────┘
+                   ↓
+            ┌───────────────┐
+            │ Chat Service  │
+            │ (business logic)
+            └──────┬────────┘
+                   ↓
+        ┌───────────────┐     ┌───────────────┐
+        │     SQLite     │     │   LM Studio   │
+        │ (chat history) │     │ (local LLM)   │
+        └───────────────┘     └───────────────┘
 ```
 
 ---
 
 ## 📁 Project Structure
 
-```text
+```
 .
 ├── app.py
-├── config.py
+├── main.py
+├── chat_service.py
+├── llm.py
 ├── db.py
-├── data/                # runtime data (not tracked)
+├── config.py
+├── data/
 ├── requirements.txt
 ├── README.md
 ├── .env.example
@@ -80,61 +86,27 @@ Environment variables are managed via `.env`.
 
 Example:
 
-```env
+```
 OPENAI_BASE_URL=http://localhost:1234/v1
 OPENAI_API_KEY=lm-studio
 MODEL_NAME=meta-llama-3.1-8b-instruct
 DB_PATH=data/chat_store.db
-SESSION_ID=default
 ```
 
 ---
 
 ## 🚀 Getting Started
 
-### 1. Clone the repository
-
-```bash
-git clone <your-repo-url>
-cd ai-cli-chatbot
-```
-
-### 2. Create virtual environment
-
 ```bash
 python3 -m venv .venv
-```
-
-### 3. Activate environment
-
-```bash
 source .venv/bin/activate
-```
-
-### 4. Install dependencies
-
-```bash
 pip install -r requirements.txt
-```
-
-### 5. Setup environment variables
-
-```bash
 cp .env.example .env
 ```
 
-Update `.env`:
+---
 
-```env
-MODEL_NAME=meta-llama-3.1-8b-instruct
-```
-
-### 6. Start LM Studio
-
-- Load your model
-- Start local server (`http://localhost:1234`)
-
-### 7. Run the chatbot
+## 🤖 Run CLI
 
 ```bash
 python app.py
@@ -142,35 +114,42 @@ python app.py
 
 ---
 
-## 💬 Usage
+## 🌐 Run API
 
-```text
-You: Hello
-AI: Hello! How can I assist you today?
+```bash
+uvicorn main:app --reload
 ```
 
-### Commands
+Docs:
 
-- `exit` → Quit chatbot
-- `/history` → Show recent chat history
+http://127.0.0.1:8000/docs
+
+---
+
+## 🔌 API Endpoints
+
+- GET /sessions
+- POST /sessions
+- GET /sessions/{session_id}
+- POST /chat
+- PATCH /sessions/{session_id}
+- DELETE /sessions/{session_id}
 
 ---
 
 ## 💾 Data Storage
 
-- Chat history is stored in:
+Local SQLite database:
 
-```text
+```
 data/chat_store.db
 ```
-
-- Data is local-only and not tracked by Git.
 
 ---
 
 ## 🔐 Privacy
 
-- All inference runs locally
+- Fully local execution
 - No external API calls
 - No data leaves your machine
 
@@ -179,50 +158,21 @@ data/chat_store.db
 ## 🧩 Tech Stack
 
 - Python
-- OpenAI Python SDK
+- FastAPI
+- OpenAI SDK
 - LM Studio
 - SQLite
-- python-dotenv
 
 ---
 
-## 🚀 Development Roadmap
+## 🚀 Roadmap
 
-### ✅ Completed
-
-- [x] Local LLM integration (LM Studio)
-- [x] CLI chatbot
-- [x] SQLite chat persistence
-- [x] Streaming responses
-
-### 🔜 Planned
-
-- [ ] Multi-session support
-- [ ] Embeddings + Retrieval (RAG)
-- [ ] Web UI (FastAPI + frontend)
-- [ ] Prompt optimization
-- [ ] Chat export / logging
+- Streaming API
+- Web UI
+- RAG support
 
 ---
 
-## 💡 Why This Project
+## 📝 Goal
 
-This project demonstrates how to build a **local-first AI application** without relying on external APIs.
-
-It focuses on:
-
-- privacy-first AI architecture
-- cost-free LLM usage
-- real-time user experience
-- scalable design for future AI systems
-
----
-
-## 📝 Learning Goal
-
-Part of a learning path toward becoming an **AI Application Engineer**, focusing on:
-
-- LLM integration
-- real-world AI system design
-- maintainable Python architecture
-- production-ready patterns
+Building toward becoming an AI Application Engineer with real-world backend and LLM integration experience.
