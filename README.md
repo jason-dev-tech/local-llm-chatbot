@@ -1,79 +1,130 @@
-# 🤖 Local AI Chatbot (FastAPI + React + Streaming)
+# 🤖 Local AI Chatbot with RAG (FastAPI + React + Streaming)
 
-A full-stack AI chatbot application running with a **local LLM**, featuring real-time streaming responses, multi-session chat management, and a modern React UI.
+A full-stack AI chatbot application powered by a **local LLM**, enhanced with **Retrieval-Augmented Generation (RAG)** for knowledge-aware responses.
+The system supports real-time streaming, multi-session chat, and intelligent routing between general conversation and knowledge-based answering.
 
-> ⚠️ This project is for portfolio and demonstration purposes only.  
+> ⚠️ This project is for portfolio and demonstration purposes only.
 > It is **not an open-source project**. All rights are reserved.
 
 ---
 
-## 🚀 Features
+# 🚀 Features
 
-### 💬 Chat Experience
-- Real-time **streaming responses** (token-by-token)
-- "Thinking..." state during generation
-- Error handling and fallback messages
+## 💬 Chat Experience
 
-### 🧠 AI Capabilities
-- Local LLM integration (via LM Studio / OpenAI-compatible API)
-- Automatic **session title generation** using AI
-- Context-aware responses (recent message history)
+* Real-time **streaming responses** (token-by-token)
+* "Thinking..." state during generation
+* Graceful error handling and fallback responses
 
-### 🗂 Session Management
-- Create multiple chat sessions
-- Rename / delete sessions
-- Persistent chat history (SQLite)
-- Sessions sorted by latest activity
+## 🧠 AI Capabilities
 
-### 🎨 UI / UX
-- Clean, responsive layout
-- Markdown rendering (headings, lists, tables, code blocks)
-- Code block **copy button**
-- Loading states for sessions and messages
+* Local LLM integration (via LM Studio / OpenAI-compatible API)
+* **RAG (Retrieval-Augmented Generation)** support
+* Context-aware responses using recent chat history
+* Automatic **AI-generated session titles**
 
----
+## 📚 Knowledge-Aware Responses (RAG)
 
-## 🏗 Tech Stack
+* Semantic search over local knowledge base
+* Automatic **context injection** into LLM prompts
+* **Source attribution** in responses
+* Deterministic **post-processing for clean source formatting**
+* **Intent-aware routing** (only trigger RAG when needed)
 
-### Backend
-- FastAPI
-- SQLite
-- Python
-- StreamingResponse (token streaming)
+## 🗂 Session Management
 
-### Frontend
-- React (TypeScript)
-- Vite
-- Fetch API (stream handling)
-- React Markdown + remark-gfm
+* Multiple chat sessions
+* Rename / delete sessions
+* Persistent chat history (SQLite)
+* Sessions sorted by latest activity
 
-### AI / LLM
-- Local LLM (LM Studio)
-- OpenAI-compatible API
+## 🎨 UI / UX
+
+* Clean, responsive interface
+* Markdown rendering (headings, tables, lists, code blocks)
+* Code block **copy button**
+* Loading states for sessions and messages
 
 ---
 
-## 📂 Project Structure
+# 🏗 Tech Stack
+
+## Backend
+
+* FastAPI
+* Python
+* SQLite (chat persistence)
+* Chroma (vector database for RAG)
+* StreamingResponse (token streaming)
+
+## Frontend
+
+* React (TypeScript)
+* Vite
+* Fetch API (stream handling)
+* React Markdown + remark-gfm
+
+## AI / LLM
+
+* Local LLM (LM Studio)
+* OpenAI-compatible API
+* Embedding model for semantic search
+
+---
+
+# 🧠 RAG Architecture Overview
+
+```
+User Query
+   ↓
+Intent Router (heuristic)
+   ↓
+(If needed)
+   → Embedding → Vector Search (Chroma)
+   → Retrieve Top-K Chunks
+   ↓
+Context Injection
+   ↓
+LLM Generation
+   ↓
+Post-processing (Source Formatting)
+   ↓
+Final Answer
+```
+
+---
+
+# 📂 Project Structure
 
 ```
 local-llm-chatbot/
 ├── backend/
+│   ├── rag/
+│   │   ├── loaders.py
+│   │   ├── chunking.py
+│   │   ├── embedding.py
+│   │   ├── vector_store.py
+│   │   ├── retrieval.py
+│   │   └── router.py
+│   ├── chat_service.py
+│   ├── llm.py
+│   └── ...
 ├── frontend/
 └── README.md
 ```
 
 ---
 
-## ⚙️ Getting Started
+# ⚙️ Getting Started
 
-### 1. Start Backend
+## 1. Start Backend
 
 ```
 cd backend
 uvicorn main:app --reload
 ```
 
-### 2. Start Frontend
+## 2. Start Frontend
 
 ```
 cd frontend
@@ -83,27 +134,39 @@ npm run dev
 
 ---
 
-## 🧪 Example Prompts
+# 🧪 Example Prompts
 
-- Explain how the internet works
-- Give me a Python example to read a file
-- Compare Python and JavaScript in a table
-- Give me a step-by-step plan to learn React
+## General Chat
 
----
+* Hello
+* Tell me a joke
+* What can you do?
 
-## 🔥 Highlights (For Recruiters)
+## Knowledge-Based (RAG)
 
-- Built a **full-stack AI application**
-- Implemented **real-time streaming LLM responses**
-- Designed **session-based chat architecture**
-- Applied **modern React component structure**
-- Focused on **product-level UX**
+* What is Retrieval-Augmented Generation?
+* How does RAG improve chatbot quality?
+* Explain how semantic search works
 
 ---
 
-## 📌 License
+# 🔥 Highlights (For Recruiters)
 
-This project is **not open source**.  
-All rights reserved.  
+* Built a **full-stack AI application with RAG architecture**
+* Implemented **semantic search with vector database (Chroma)**
+* Designed **end-to-end RAG pipeline**:
+
+  * ingestion → embedding → retrieval → generation
+* Developed **intent-aware routing** for conditional RAG usage
+* Implemented **deterministic source attribution (post-processing)**
+* Built **real-time streaming LLM responses**
+* Designed **multi-session chat system with persistence**
+* Focused on **production-like system design and UX**
+
+---
+
+# 📌 License
+
+This project is **not open source**.
+All rights reserved.
 Unauthorized copying, modification, or distribution is not permitted.
