@@ -169,6 +169,8 @@ function App() {
 
     setErrorMessage("");
 
+    const activeSessionId = currentSessionId;
+
     const userMessage: MessageItem = {
       role: "user",
       content: trimmedInput,
@@ -187,7 +189,7 @@ function App() {
       let hasReceivedToken = false;
 
       await streamChat(
-        currentSessionId,
+        activeSessionId,
         trimmedInput,
         (token) => {
           hasReceivedToken = true;
@@ -196,7 +198,7 @@ function App() {
             const updated = [...prev];
             const lastIndex = updated.length - 1;
 
-            if (updated[lastIndex].role === "assistant") {
+            if (updated[lastIndex]?.role === "assistant") {
               const currentContent = updated[lastIndex].content;
               const nextContent =
                 currentContent === "Thinking..."
@@ -229,8 +231,16 @@ function App() {
             });
           }
 
-          const updatedSessions = await fetchSessions();
+          const [updatedSessions, updatedMessages] = await Promise.all([
+            fetchSessions(),
+            fetchMessages(activeSessionId),
+          ]);
+
           setSessions(updatedSessions);
+
+          if (currentSessionId === activeSessionId) {
+            setMessages(updatedMessages);
+          }
         },
         (streamErrorMessage) => {
           console.error(streamErrorMessage);
