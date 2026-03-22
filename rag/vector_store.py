@@ -31,3 +31,10 @@ class VectorStore:
 
     def get_all(self) -> dict:
         return self.collection.get()
+    
+    def query(self, query_embedding: list[float], top_k: int = 3) -> dict:
+        results = self.collection.query(
+            query_embeddings=[query_embedding],
+            n_results=top_k,
+        )
+        return results
