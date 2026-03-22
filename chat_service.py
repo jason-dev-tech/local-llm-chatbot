@@ -35,15 +35,40 @@ def build_rag_messages(session_id, user_input):
             "If the context is only partially relevant, use it carefully and make that clear.\n"
             "If the context does not contain enough information, say so clearly instead of making up facts.\n"
             "Keep the answer clear, concise, and grounded in the provided context when possible.\n\n"
-            "After your answer, include a section titled 'Sources' and list the relevant sources from the context.\n"
-            "Only include sources that are actually used in your answer.\n\n"
             f"Context:\n{context_text}"
         )
     else:
         system_prompt = SYSTEM_PROMPT
 
-    return [{"role": "system", "content": system_prompt}] + history
+    messages = [{"role": "system", "content": system_prompt}] + history
+    return messages, chunks
 
+
+def extract_source_list(chunks):
+    seen = set()
+    sources = []
+
+    for chunk in chunks:
+        source = chunk.get("metadata", {}).get("source")
+        if not source or source in seen:
+            continue
+
+        seen.add(source)
+        sources.append(source)
+
+    return sources
+
+
+def append_sources_to_answer(answer, chunks):
+    sources = extract_source_list(chunks)
+
+    if not sources:
+        return answer
+
+    source_lines = [f"{index}. {source}" for index, source in enumerate(sources, start=1)]
+    source_text = "\n".join(source_lines)
+
+    return f"{answer}\n\nSources:\n{source_text}"
 
 def maybe_update_session_title(session_id, user_input):
     """
@@ -74,7 +99,7 @@ def send_message_and_stream(session_id, user_input):
 
     maybe_update_session_title(session_id, user_input)
 
-    messages = build_rag_messages(session_id, user_input)
+    messages, chunks = build_rag_messages(session_id, user_input)
     answer_parts = []
 
     for token in stream_response(messages):
@@ -82,16 +107,18 @@ def send_message_and_stream(session_id, user_input):
         yield token
 
     answer = "".join(answer_parts)
+    answer = append_sources_to_answer(answer, chunks)
     save_message(session_id, "assistant", answer)
-
+    
 
 def send_message(session_id, user_input):
     save_message(session_id, "user", user_input)
 
     maybe_update_session_title(session_id, user_input)
 
-    messages = build_rag_messages(session_id, user_input)
+    messages, chunks = build_rag_messages(session_id, user_input)
     answer = generate_response(messages)
+    answer = append_sources_to_answer(answer, chunks)
 
     save_message(session_id, "assistant", answer)
     return answer
