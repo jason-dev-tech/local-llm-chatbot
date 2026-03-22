@@ -1,3 +1,5 @@
+import json
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -60,15 +62,13 @@ def root():
 @app.get("/sessions")
 def list_sessions():
     sessions = get_all_sessions_with_titles()
-    return {
-        "sessions": [
-            {
-                "session_id": session_id,
-                "title": title,
-            }
-            for session_id, title in sessions
-        ]
-    }
+    return [
+        {
+            "session_id": session_id,
+            "title": title,
+        }
+        for session_id, title in sessions
+    ]
 
 
 @app.post("/sessions", response_model=CreateSessionResponse)
@@ -100,6 +100,14 @@ def get_session_detail_api(session_id: str):
     }
 
 
+@app.get("/sessions/{session_id}/messages")
+def get_session_messages_api(session_id: str):
+    if not session_exists(session_id):
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    return get_session_messages(session_id)
+
+
 @app.post("/chat", response_model=ChatResponse)
 def chat_api(request: ChatRequest):
     if not session_exists(request.session_id):
@@ -121,17 +129,32 @@ def chat_stream_api(request: ChatStreamRequest):
     if not session_exists(request.session_id):
         raise HTTPException(status_code=404, detail="Session not found")
 
-    if not request.message.strip():
+    message = request.message.strip()
+    if not message:
         raise HTTPException(status_code=400, detail="Message cannot be empty")
 
     def event_stream():
         try:
-            for token in send_message_and_stream(request.session_id, request.message):
-                yield token
-        except Exception as e:
-            yield f"\\n[ERROR] {str(e)}"
+            for token in send_message_and_stream(request.session_id, message):
+                yield json.dumps({
+                    "type": "token",
+                    "content": token,
+                }) + "\n"
 
-    return StreamingResponse(event_stream(), media_type="text/plain")
+            yield json.dumps({
+                "type": "done",
+            }) + "\n"
+
+        except Exception as e:
+            yield json.dumps({
+                "type": "error",
+                "message": str(e),
+            }) + "\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="application/x-ndjson",
+    )
 
 
 @app.patch("/sessions/{session_id}")

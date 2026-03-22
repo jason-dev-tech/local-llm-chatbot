@@ -1,26 +1,21 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import "./App.css";
 
-type Session = {
-  session_id: string;
-  title: string | null;
-};
-
-type Message = {
-  id?: number;
-  role: "user" | "assistant" | "system";
-  content: string;
-  created_at?: string;
-};
-
-const API_BASE_URL = "http://127.0.0.1:8000";
+import type { SessionItem, MessageItem } from "./types";
+import {
+  fetchSessions,
+  createSession,
+  fetchMessages,
+  streamChat,
+} from "./api/chat";
 
 function App() {
-  const [sessions, setSessions] = useState<Session[]>([]);
+  const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string>("");
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<MessageItem[]>([]);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -33,19 +28,15 @@ function App() {
 
   async function loadSessions() {
     try {
-      const response = await fetch(`${API_BASE_URL}/sessions`);
-      if (!response.ok) {
-        throw new Error("Failed to load sessions");
-      }
-
-      const data = await response.json();
-      const sessionList: Session[] = data.sessions ?? [];
+      const sessionList = await fetchSessions();
       setSessions(sessionList);
 
       if (sessionList.length > 0 && !currentSessionId) {
         const firstSessionId = sessionList[0].session_id;
         setCurrentSessionId(firstSessionId);
-        await loadSessionMessages(firstSessionId);
+
+        const msgs = await fetchMessages(firstSessionId);
+        setMessages(msgs);
       }
     } catch (error) {
       console.error(error);
@@ -54,36 +45,21 @@ function App() {
 
   async function loadSessionMessages(sessionId: string) {
     try {
-      const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}`);
-      if (!response.ok) {
-        throw new Error("Failed to load session messages");
-      }
-
-      const data = await response.json();
-      setMessages(data.messages ?? []);
+      const msgs = await fetchMessages(sessionId);
+      setMessages(msgs);
       setCurrentSessionId(sessionId);
     } catch (error) {
       console.error(error);
     }
   }
 
-  async function createSession() {
+  async function handleCreateSession() {
     try {
-      const response = await fetch(`${API_BASE_URL}/sessions`, {
-        method: "POST",
-      });
+      const newSession = await createSession();
 
-      if (!response.ok) {
-        throw new Error("Failed to create session");
-      }
+      const updated = await fetchSessions();
+      setSessions(updated);
 
-      const data = await response.json();
-      const newSession: Session = {
-        session_id: data.session_id,
-        title: data.title,
-      };
-
-      setSessions((prev) => [...prev, newSession]);
       setCurrentSessionId(newSession.session_id);
       setMessages([]);
     } catch (error) {
@@ -99,104 +75,52 @@ function App() {
       return;
     }
 
-    const userMessage: Message = {
+    const userMessage: MessageItem = {
       role: "user",
       content: trimmedInput,
     };
 
-    const assistantPlaceholderIndex = messages.length + 1;
+    const assistantPlaceholder: MessageItem = {
+      role: "assistant",
+      content: "",
+    };
 
-    setMessages((prev) => [
-      ...prev,
-      userMessage,
-      { role: "assistant", content: "" },
-    ]);
+    setMessages((prev) => [...prev, userMessage, assistantPlaceholder]);
 
     setInput("");
     setIsSending(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/chat/stream`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      await streamChat(
+        currentSessionId,
+        trimmedInput,
+        (token) => {
+          setMessages((prev) => {
+            const updated = [...prev];
+            const lastIndex = updated.length - 1;
+
+            if (updated[lastIndex].role === "assistant") {
+              updated[lastIndex] = {
+                ...updated[lastIndex],
+                content: updated[lastIndex].content + token,
+              };
+            }
+
+            return updated;
+          });
         },
-        body: JSON.stringify({
-          session_id: currentSessionId,
-          message: trimmedInput,
-        }),
-      });
-
-      if (!response.ok || !response.body) {
-        throw new Error("Failed to stream response");
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let fullText = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          break;
+        async () => {
+          const updatedSessions = await fetchSessions();
+          setSessions(updatedSessions);
+        },
+        (errorMessage) => {
+          console.error(errorMessage);
         }
-
-        const chunk = decoder.decode(value, { stream: true });
-        fullText += chunk;
-
-        setMessages((prev) => {
-          const updated = [...prev];
-          if (updated[assistantPlaceholderIndex]) {
-            updated[assistantPlaceholderIndex] = {
-              ...updated[assistantPlaceholderIndex],
-              role: "assistant",
-              content: fullText,
-            };
-          }
-          return updated;
-        });
-      }
-
-      await refreshSessionsPreserveSelection(currentSessionId);
+      );
     } catch (error) {
       console.error(error);
-
-      setMessages((prev) => {
-        const updated = [...prev];
-        if (updated[assistantPlaceholderIndex]) {
-          updated[assistantPlaceholderIndex] = {
-            ...updated[assistantPlaceholderIndex],
-            role: "assistant",
-            content: "Error: failed to get response.",
-          };
-        }
-        return updated;
-      });
     } finally {
       setIsSending(false);
-    }
-  }
-
-  async function refreshSessionsPreserveSelection(sessionId: string) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/sessions`);
-      if (!response.ok) {
-        return;
-      }
-
-      const data = await response.json();
-      const sessionList: Session[] = data.sessions ?? [];
-      setSessions(sessionList);
-
-      const exists = sessionList.some(
-        (session) => session.session_id === sessionId
-      );
-
-      if (exists) {
-        setCurrentSessionId(sessionId);
-      }
-    } catch (error) {
-      console.error(error);
     }
   }
 
@@ -209,7 +133,7 @@ function App() {
       <aside className="sidebar">
         <div className="sidebar-header">
           <h1>Local AI Chatbot</h1>
-          <button onClick={createSession}>+ New Chat</button>
+          <button onClick={handleCreateSession}>+ New Chat</button>
         </div>
 
         <div className="session-list">
@@ -224,7 +148,6 @@ function App() {
               <span className="session-title">
                 {session.title || session.session_id}
               </span>
-              <span className="session-id">{session.session_id}</span>
             </button>
           ))}
         </div>
@@ -265,7 +188,7 @@ function App() {
             disabled={!currentSessionId || isSending}
           />
           <button type="submit" disabled={!currentSessionId || isSending}>
-            {isSending ? "Sending..." : "Send"}
+            {isSending ? "Streaming..." : "Send"}
           </button>
         </form>
       </main>
