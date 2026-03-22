@@ -1,131 +1,109 @@
-# AI CLI Chatbot
+# 🤖 Local AI Chatbot (FastAPI + React + Streaming)
 
-A simple command-line chatbot built with Python and an LLM API.
+A full-stack AI chatbot application running with a **local LLM**, featuring real-time streaming responses, multi-session chat management, and a modern React UI.
 
-This project is the first step in learning AI Application Engineering.  
-It demonstrates how a software application can interact with a Large Language Model (LLM) through an API to generate responses.
-
----
-
-# Project Goal
-
-The goal of this project is to understand the basic workflow of an AI-powered application:
-
-1. Accept user input  
-2. Send a request to an LLM API  
-3. Receive an AI-generated response  
-4. Display the response in the terminal  
-
-This project focuses on the core interaction pattern between an application and an LLM.
+> ⚠️ This project is for portfolio and demonstration purposes only.  
+> It is **not an open-source project**. All rights are reserved.
 
 ---
 
-# Tech Stack
+## 🚀 Features
 
-- Python  
-- OpenAI-compatible API  
-- python-dotenv  
+### 💬 Chat Experience
+- Real-time **streaming responses** (token-by-token)
+- "Thinking..." state during generation
+- Error handling and fallback messages
 
----
+### 🧠 AI Capabilities
+- Local LLM integration (via LM Studio / OpenAI-compatible API)
+- Automatic **session title generation** using AI
+- Context-aware responses (recent message history)
 
-# Features
+### 🗂 Session Management
+- Create multiple chat sessions
+- Rename / delete sessions
+- Persistent chat history (SQLite)
+- Sessions sorted by latest activity
 
-- Command-line chatbot interface  
-- Sends user prompts to an LLM  
-- Displays AI-generated responses  
-- Uses environment variables for API key management  
-- Basic prompt structure with system and user roles  
-
----
-
-# Project Structure
-
-ai-cli-chatbot/
-
-├── ai_chat.py  
-├── requirements.txt  
-├── .gitignore  
-└── README.md  
+### 🎨 UI / UX
+- Clean, responsive layout
+- Markdown rendering (headings, lists, tables, code blocks)
+- Code block **copy button**
+- Loading states for sessions and messages
 
 ---
 
-# Setup
+## 🏗 Tech Stack
 
-## 1 Install dependencies
+### Backend
+- FastAPI
+- SQLite
+- Python
+- StreamingResponse (token streaming)
 
-pip install -r requirements.txt
+### Frontend
+- React (TypeScript)
+- Vite
+- Fetch API (stream handling)
+- React Markdown + remark-gfm
 
----
-
-## 2 Create a .env file
-
-Create a file named `.env` in the project root:
-
-OPENAI_API_KEY=your_api_key_here  
-OPENAI_BASE_URL=your_api_base_url_here  
-MODEL_NAME=your_model_name_here  
-
-Example:
-
-OPENAI_API_KEY=sk-xxxx  
-OPENAI_BASE_URL=https://api.openai.com/v1  
-MODEL_NAME=gpt-4o-mini  
+### AI / LLM
+- Local LLM (LM Studio)
+- OpenAI-compatible API
 
 ---
 
-## 3 Run the chatbot
+## 📂 Project Structure
 
-python ai_chat.py
-
-Example interaction:
-
-AI CLI Chatbot started.
-
-You: explain docker  
-AI: Docker is a platform that allows developers to package applications into containers...
+```
+local-llm-chatbot/
+├── backend/
+├── frontend/
+└── README.md
+```
 
 ---
 
-# How It Works
+## ⚙️ Getting Started
 
-The application follows this flow:
+### 1. Start Backend
 
-User Input  
-↓  
-Python Application  
-↓  
-LLM API Request  
-↓  
-AI Generated Response  
-↓  
-Display in Terminal  
+```
+cd backend
+uvicorn main:app --reload
+```
 
----
+### 2. Start Frontend
 
-# Learning Outcomes
-
-This project helps understand:
-
-- What a Large Language Model (LLM) is  
-- How applications call an LLM API  
-- The structure of AI prompts  
-- The role of system and user messages  
-- Basic AI application architecture  
+```
+cd frontend
+npm install
+npm run dev
+```
 
 ---
 
-# Future Improvements
+## 🧪 Example Prompts
 
-Possible upgrades:
-
-- Add conversation history (memory)  
-- Support streaming responses  
-- Add configuration options  
-- Build a web interface  
-- Extend to a RAG-based chatbot  
+- Explain how the internet works
+- Give me a Python example to read a file
+- Compare Python and JavaScript in a table
+- Give me a step-by-step plan to learn React
 
 ---
 
-# License
+## 🔥 Highlights (For Recruiters)
 
-This project is for educational purposes.
+- Built a **full-stack AI application**
+- Implemented **real-time streaming LLM responses**
+- Designed **session-based chat architecture**
+- Applied **modern React component structure**
+- Focused on **product-level UX**
+
+---
+
+## 📌 License
+
+This project is **not open source**.  
+All rights reserved.  
+Unauthorized copying, modification, or distribution is not permitted.
