@@ -7,6 +7,7 @@ from db import (
     session_exists,
     delete_session,
     get_session_messages,
+    get_session_title,
 )
 from llm import stream_response, generate_session_title, generate_response
 
@@ -18,16 +19,34 @@ def build_messages(session_id):
     return [{"role": "system", "content": SYSTEM_PROMPT}] + history
 
 
+def maybe_update_session_title(session_id, user_input):
+    """
+    Generate a session title only for a new/default session.
+    """
+    current_title = get_session_title(session_id)
+
+    if current_title and current_title != "New Chat":
+        return
+
+    history = get_recent_messages(session_id, limit=1)
+    if len(history) != 1:
+        return
+
+    try:
+        title = generate_session_title(user_input).strip()
+
+        if not title:
+            return
+
+        update_session_title(session_id, title[:60])
+    except Exception:
+        pass
+
+
 def send_message_and_stream(session_id, user_input):
     save_message(session_id, "user", user_input)
 
-    history = get_recent_messages(session_id, limit=1)
-    if len(history) == 1:
-        try:
-            title = generate_session_title(user_input)
-            update_session_title(session_id, title)
-        except Exception:
-            pass
+    maybe_update_session_title(session_id, user_input)
 
     messages = build_messages(session_id)
     answer_parts = []
@@ -43,13 +62,7 @@ def send_message_and_stream(session_id, user_input):
 def send_message(session_id, user_input):
     save_message(session_id, "user", user_input)
 
-    history = get_recent_messages(session_id, limit=1)
-    if len(history) == 1:
-        try:
-            title = generate_session_title(user_input)
-            update_session_title(session_id, title)
-        except Exception:
-            pass
+    maybe_update_session_title(session_id, user_input)
 
     messages = build_messages(session_id)
     answer = generate_response(messages)
@@ -81,7 +94,7 @@ def get_initial_session():
 
 def create_new_session():
     session_id = generate_new_session_id()
-    create_session(session_id)
+    create_session(session_id, "New Chat")
     return session_id
 
 
