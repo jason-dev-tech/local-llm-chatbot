@@ -25,3 +25,9 @@ class VectorStore:
             embeddings=embeddings,
             metadatas=metadatas,
         )
+
+    def count(self) -> int:
+        return self.collection.count()
+
+    def get_all(self) -> dict:
+        return self.collection.get()
