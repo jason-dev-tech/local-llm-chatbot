@@ -1,5 +1,6 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useState } from "react";
 import type { MessageItem } from "../types";
 
 type MessageListProps = {
@@ -7,6 +8,46 @@ type MessageListProps = {
   isLoadingMessages: boolean;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
 };
+
+function CodeBlock({ children }: { children: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(children);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (err) {
+      console.error("Copy failed", err);
+    }
+  }
+
+  return (
+    <div style={{ position: "relative" }}>
+      <button
+        onClick={handleCopy}
+        style={{
+          position: "absolute",
+          top: 8,
+          right: 8,
+          fontSize: 12,
+          padding: "4px 8px",
+          borderRadius: 6,
+          border: "none",
+          background: "#334155",
+          color: "#e5e7eb",
+          cursor: "pointer",
+        }}
+      >
+        {copied ? "Copied" : "Copy"}
+      </button>
+
+      <pre>
+        <code>{children}</code>
+      </pre>
+    </div>
+  );
+}
 
 function MessageList({
   messages,
@@ -35,22 +76,12 @@ function MessageList({
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
-                  code({ inline, className, children, ...props }: any) {
+                  code({ inline, children }: any) {
                     if (inline) {
-                      return (
-                        <code className={className} {...props}>
-                          {children}
-                        </code>
-                      );
+                      return <code>{children}</code>;
                     }
 
-                    return (
-                      <pre>
-                        <code className={className} {...props}>
-                          {children}
-                        </code>
-                      </pre>
-                    );
+                    return <CodeBlock>{String(children)}</CodeBlock>;
                   },
                 }}
               >
