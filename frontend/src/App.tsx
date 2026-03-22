@@ -7,6 +7,8 @@ import {
   createSession,
   fetchMessages,
   streamChat,
+  renameSession,
+  deleteSession,
 } from "./api/chat";
 
 function App() {
@@ -56,12 +58,75 @@ function App() {
   async function handleCreateSession() {
     try {
       const newSession = await createSession();
+      const updated = await fetchSessions();
+
+      setSessions(updated);
+      setCurrentSessionId(newSession.session_id);
+      setMessages([]);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function handleRenameSession(
+    event: React.MouseEvent,
+    sessionId: string,
+    currentTitle: string | null
+  ) {
+    event.stopPropagation();
+
+    const nextTitle = window.prompt(
+      "Enter a new session title:",
+      currentTitle || sessionId
+    );
+
+    if (!nextTitle) {
+      return;
+    }
+
+    const trimmedTitle = nextTitle.trim();
+    if (!trimmedTitle) {
+      return;
+    }
+
+    try {
+      await renameSession(sessionId, trimmedTitle);
+      const updated = await fetchSessions();
+      setSessions(updated);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function handleDeleteSession(
+    event: React.MouseEvent,
+    sessionId: string
+  ) {
+    event.stopPropagation();
+
+    const confirmed = window.confirm("Delete this session?");
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await deleteSession(sessionId);
 
       const updated = await fetchSessions();
       setSessions(updated);
 
-      setCurrentSessionId(newSession.session_id);
-      setMessages([]);
+      if (currentSessionId === sessionId) {
+        if (updated.length > 0) {
+          const firstSessionId = updated[0].session_id;
+          setCurrentSessionId(firstSessionId);
+
+          const msgs = await fetchMessages(firstSessionId);
+          setMessages(msgs);
+        } else {
+          setCurrentSessionId("");
+          setMessages([]);
+        }
+      }
     } catch (error) {
       console.error(error);
     }
@@ -138,17 +203,42 @@ function App() {
 
         <div className="session-list">
           {sessions.map((session) => (
-            <button
+            <div
               key={session.session_id}
               className={`session-item ${
                 session.session_id === currentSessionId ? "active" : ""
               }`}
               onClick={() => loadSessionMessages(session.session_id)}
             >
-              <span className="session-title">
-                {session.title || session.session_id}
-              </span>
-            </button>
+              <div className="session-main">
+                <span className="session-title">
+                  {session.title || session.session_id}
+                </span>
+              </div>
+
+              <div className="session-actions">
+                <button
+                  type="button"
+                  onClick={(event) =>
+                    handleRenameSession(
+                      event,
+                      session.session_id,
+                      session.title
+                    )
+                  }
+                >
+                  Rename
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) =>
+                    handleDeleteSession(event, session.session_id)
+                  }
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
           ))}
         </div>
       </aside>
