@@ -1,3 +1,5 @@
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { MessageItem } from "../types";
 
 type MessageListProps = {
@@ -28,7 +30,33 @@ function MessageList({
             <div className="message-role">
               {message.role === "user" ? "You" : "AI"}
             </div>
-            <div className="message-content">{message.content}</div>
+
+            <div className="message-content markdown-body">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  code({ inline, className, children, ...props }: any) {
+                    if (inline) {
+                      return (
+                        <code className={className} {...props}>
+                          {children}
+                        </code>
+                      );
+                    }
+
+                    return (
+                      <pre>
+                        <code className={className} {...props}>
+                          {children}
+                        </code>
+                      </pre>
+                    );
+                  },
+                }}
+              >
+                {message.content}
+              </ReactMarkdown>
+            </div>
           </div>
         ))
       )}
