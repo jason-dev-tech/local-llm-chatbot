@@ -10,6 +10,7 @@ import {
   renameSession,
   deleteSession,
 } from "./api/chat";
+import SessionSidebar from "./components/SessionSidebar";
 
 function App() {
   const [sessions, setSessions] = useState<SessionItem[]>([]);
@@ -92,12 +93,9 @@ function App() {
   }
 
   async function handleRenameSession(
-    event: React.MouseEvent,
     sessionId: string,
     currentTitle: string | null
   ) {
-    event.stopPropagation();
-
     const nextTitle = window.prompt(
       "Enter a new session title:",
       currentTitle || sessionId
@@ -124,12 +122,7 @@ function App() {
     }
   }
 
-  async function handleDeleteSession(
-    event: React.MouseEvent,
-    sessionId: string
-  ) {
-    event.stopPropagation();
-
+  async function handleDeleteSession(sessionId: string) {
     const confirmed = window.confirm("Delete this session?");
     if (!confirmed) {
       return;
@@ -279,61 +272,15 @@ function App() {
 
   return (
     <div className="app">
-      <aside className="sidebar">
-        <div className="sidebar-header">
-          <h1>Local AI Chatbot</h1>
-          <button onClick={handleCreateSession} disabled={isLoadingSessions}>
-            {isLoadingSessions ? "Loading..." : "+ New Chat"}
-          </button>
-        </div>
-
-        <div className="session-list">
-          {isLoadingSessions && sessions.length === 0 ? (
-            <div className="empty-state">Loading sessions...</div>
-          ) : sessions.length === 0 ? (
-            <div className="empty-state">No sessions yet.</div>
-          ) : (
-            sessions.map((session) => (
-              <div
-                key={session.session_id}
-                className={`session-item ${
-                  session.session_id === currentSessionId ? "active" : ""
-                }`}
-                onClick={() => loadSessionMessages(session.session_id)}
-              >
-                <div className="session-main">
-                  <span className="session-title">
-                    {session.title || session.session_id}
-                  </span>
-                </div>
-
-                <div className="session-actions">
-                  <button
-                    type="button"
-                    onClick={(event) =>
-                      handleRenameSession(
-                        event,
-                        session.session_id,
-                        session.title
-                      )
-                    }
-                  >
-                    Rename
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(event) =>
-                      handleDeleteSession(event, session.session_id)
-                    }
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </aside>
+      <SessionSidebar
+        sessions={sessions}
+        currentSessionId={currentSessionId}
+        isLoadingSessions={isLoadingSessions}
+        onCreateSession={handleCreateSession}
+        onSelectSession={loadSessionMessages}
+        onRenameSession={handleRenameSession}
+        onDeleteSession={handleDeleteSession}
+      />
 
       <main className="chat-panel">
         <div className="chat-header">
