@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
 import type { SessionItem, MessageItem } from "./types";
@@ -19,6 +19,12 @@ function App() {
   const [isSending, setIsSending] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  const currentSession = useMemo(() => {
+    return sessions.find((session) => session.session_id === currentSessionId) || null;
+  }, [sessions, currentSessionId]);
+
+  const currentSessionDisplayTitle = currentSession?.title || currentSessionId || "No session selected";
 
   useEffect(() => {
     loadSessions();
@@ -245,7 +251,7 @@ function App() {
 
       <main className="chat-panel">
         <div className="chat-header">
-          <h2>{currentSessionId || "No session selected"}</h2>
+          <h2>{currentSessionDisplayTitle}</h2>
         </div>
 
         <div className="message-list">
