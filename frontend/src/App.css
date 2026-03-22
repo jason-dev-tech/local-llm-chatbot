@@ -370,3 +370,26 @@ button {
 .markdown-body em {
   font-style: italic;
 }
+
+/* Tighter spacing for source section in assistant messages */
+.message.assistant .markdown-body p {
+  margin: 0 0 8px;
+}
+
+.message.assistant .markdown-body hr {
+  margin: 12px 0;
+}
+
+.message.assistant .markdown-body p + ul,
+.message.assistant .markdown-body p + ol {
+  margin-top: -4px;
+}
+
+.message.assistant .markdown-body ul,
+.message.assistant .markdown-body ol {
+  margin-bottom: 0;
+}
+
+.message.assistant .markdown-body li {
+  margin: 0;
+}

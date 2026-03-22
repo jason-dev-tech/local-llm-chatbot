@@ -70,10 +70,11 @@ def append_sources_to_answer(answer, chunks):
     if not sources:
         return answer
 
-    source_lines = [f"{index}. {source}" for index, source in enumerate(sources, start=1)]
+    source_lines = [f"- {source}" for source in sources]
     source_text = "\n".join(source_lines)
 
     return f"{answer}\n\nSources:\n{source_text}"
+
 
 def maybe_update_session_title(session_id, user_input):
     """

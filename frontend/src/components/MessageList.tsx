@@ -49,6 +49,31 @@ function CodeBlock({ children }: { children: string }) {
   );
 }
 
+function splitMessageContent(content: string) {
+  const marker = "\n\nSources:\n";
+  const index = content.indexOf(marker);
+
+  if (index === -1) {
+    return {
+      mainContent: content,
+      sources: [],
+    };
+  }
+
+  const mainContent = content.slice(0, index);
+  const sourceBlock = content.slice(index + marker.length);
+
+  const sources = sourceBlock
+    .split("\n")
+    .map((line) => line.replace(/^- /, "").trim())
+    .filter(Boolean);
+
+  return {
+    mainContent,
+    sources,
+  };
+}
+
 function MessageList({
   messages,
   isLoadingMessages,
@@ -63,33 +88,51 @@ function MessageList({
           Start a new conversation with your local AI chatbot.
         </div>
       ) : (
-        messages.map((message, index) => (
-          <div
-            key={`${message.role}-${index}`}
-            className={`message ${message.role}`}
-          >
-            <div className="message-role">
-              {message.role === "user" ? "You" : "AI"}
-            </div>
+        messages.map((message, index) => {
+          const isAssistant = message.role === "assistant";
+          const { mainContent, sources } = isAssistant
+            ? splitMessageContent(message.content)
+            : { mainContent: message.content, sources: [] as string[] };
 
-            <div className="message-content markdown-body">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  code({ inline, children }: any) {
-                    if (inline) {
-                      return <code>{children}</code>;
-                    }
+          return (
+            <div
+              key={`${message.role}-${index}`}
+              className={`message ${message.role}`}
+            >
+              <div className="message-role">
+                {message.role === "user" ? "You" : "AI"}
+              </div>
 
-                    return <CodeBlock>{String(children)}</CodeBlock>;
-                  },
-                }}
-              >
-                {message.content}
-              </ReactMarkdown>
+              <div className="message-content markdown-body">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    code({ inline, children }: any) {
+                      if (inline) {
+                        return <code>{children}</code>;
+                      }
+
+                      return <CodeBlock>{String(children)}</CodeBlock>;
+                    },
+                  }}
+                >
+                  {mainContent}
+                </ReactMarkdown>
+
+                {isAssistant && sources.length > 0 && (
+                  <div className="sources-block">
+                    <div className="sources-title">Sources</div>
+                    <ul className="sources-list">
+                      {sources.map((source) => (
+                        <li key={source}>{source}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))
+          );
+        })
       )}
       <div ref={messagesEndRef} />
     </div>
