@@ -11,6 +11,7 @@ from db import (
 )
 from llm import stream_response, generate_session_title, generate_response
 from rag.retrieval import retrieve_relevant_chunks, build_context_text
+from rag.router import should_use_rag
 
 SYSTEM_PROMPT = "You are a helpful assistant. Answer clearly and concisely."
 
@@ -22,6 +23,10 @@ def build_messages(session_id):
 
 def build_rag_messages(session_id, user_input):
     history = get_recent_messages(session_id, limit=10)
+
+    if not should_use_rag(user_input):
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}] + history
+        return messages, []
 
     chunks = retrieve_relevant_chunks(user_input, top_k=3)
     context_text = build_context_text(chunks)
@@ -109,7 +114,7 @@ def send_message_and_stream(session_id, user_input):
     answer = "".join(answer_parts)
     answer = append_sources_to_answer(answer, chunks)
     save_message(session_id, "assistant", answer)
-    
+
 
 def send_message(session_id, user_input):
     save_message(session_id, "user", user_input)
