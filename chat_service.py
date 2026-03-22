@@ -35,6 +35,8 @@ def build_rag_messages(session_id, user_input):
             "If the context is only partially relevant, use it carefully and make that clear.\n"
             "If the context does not contain enough information, say so clearly instead of making up facts.\n"
             "Keep the answer clear, concise, and grounded in the provided context when possible.\n\n"
+            "After your answer, include a section titled 'Sources' and list the relevant sources from the context.\n"
+            "Only include sources that are actually used in your answer.\n\n"
             f"Context:\n{context_text}"
         )
     else:
