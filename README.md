@@ -1,178 +1,109 @@
-# 🧠 Local AI Chatbot (CLI + FastAPI)
+# 🤖 Local AI Chatbot (FastAPI + React + Streaming)
 
-A local-first AI chatbot built with Python, LM Studio, SQLite, and FastAPI.
+A full-stack AI chatbot application running with a **local LLM**, featuring real-time streaming responses, multi-session chat management, and a modern React UI.
 
----
-
-## 📌 Project Status
-
-🚧 Actively evolving into a full AI application.
-
-Current capabilities:
-
-- Local LLM integration via LM Studio
-- CLI chatbot interface
-- FastAPI backend API
-- Multi-session chat management
-- Persistent chat history
-- Streaming-ready architecture
+> ⚠️ This project is for portfolio and demonstration purposes only.  
+> It is **not an open-source project**. All rights are reserved.
 
 ---
 
-## 📖 Overview
+## 🚀 Features
 
-This project is a **local AI chatbot system** that runs entirely on your machine and communicates with a locally hosted language model via an OpenAI-compatible API.
+### 💬 Chat Experience
+- Real-time **streaming responses** (token-by-token)
+- "Thinking..." state during generation
+- Error handling and fallback messages
 
-It started as a CLI chatbot and has been refactored into a **layered backend architecture** with FastAPI support, making it ready for web-based interfaces and future AI extensions such as RAG.
+### 🧠 AI Capabilities
+- Local LLM integration (via LM Studio / OpenAI-compatible API)
+- Automatic **session title generation** using AI
+- Context-aware responses (recent message history)
 
----
-
-## ✨ Features
-
-- Local LLM inference (LM Studio)
-- OpenAI-compatible API integration
-- CLI chatbot interface
-- FastAPI backend (REST API)
-- Multi-session conversation support
+### 🗂 Session Management
+- Create multiple chat sessions
+- Rename / delete sessions
 - Persistent chat history (SQLite)
-- Automatic session title generation
-- Clean layered architecture
+- Sessions sorted by latest activity
+
+### 🎨 UI / UX
+- Clean, responsive layout
+- Markdown rendering (headings, lists, tables, code blocks)
+- Code block **copy button**
+- Loading states for sessions and messages
 
 ---
 
-## 🏗️ Architecture
+## 🏗 Tech Stack
 
-```
-            ┌───────────────┐
-            │   CLI / API   │
-            │  (app / main) │
-            └──────┬────────┘
-                   ↓
-            ┌───────────────┐
-            │ Chat Service  │
-            │ (business logic)
-            └──────┬────────┘
-                   ↓
-        ┌───────────────┐     ┌───────────────┐
-        │     SQLite     │     │   LM Studio   │
-        │ (chat history) │     │ (local LLM)   │
-        └───────────────┘     └───────────────┘
-```
+### Backend
+- FastAPI
+- SQLite
+- Python
+- StreamingResponse (token streaming)
+
+### Frontend
+- React (TypeScript)
+- Vite
+- Fetch API (stream handling)
+- React Markdown + remark-gfm
+
+### AI / LLM
+- Local LLM (LM Studio)
+- OpenAI-compatible API
 
 ---
 
-## 📁 Project Structure
+## 📂 Project Structure
 
 ```
-.
-├── app.py
-├── main.py
-├── chat_service.py
-├── llm.py
-├── db.py
-├── config.py
-├── data/
-├── requirements.txt
-├── README.md
-├── .env.example
-└── .gitignore
+local-llm-chatbot/
+├── backend/
+├── frontend/
+└── README.md
 ```
 
 ---
 
-## ⚙️ Configuration
+## ⚙️ Getting Started
 
-Environment variables are managed via `.env`.
-
-Example:
+### 1. Start Backend
 
 ```
-OPENAI_BASE_URL=http://localhost:1234/v1
-OPENAI_API_KEY=lm-studio
-MODEL_NAME=meta-llama-3.1-8b-instruct
-DB_PATH=data/chat_store.db
-```
-
----
-
-## 🚀 Getting Started
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-```
-
----
-
-## 🤖 Run CLI
-
-```bash
-python app.py
-```
-
----
-
-## 🌐 Run API
-
-```bash
+cd backend
 uvicorn main:app --reload
 ```
 
-Docs:
-
-http://127.0.0.1:8000/docs
-
----
-
-## 🔌 API Endpoints
-
-- GET /sessions
-- POST /sessions
-- GET /sessions/{session_id}
-- POST /chat
-- PATCH /sessions/{session_id}
-- DELETE /sessions/{session_id}
-
----
-
-## 💾 Data Storage
-
-Local SQLite database:
+### 2. Start Frontend
 
 ```
-data/chat_store.db
+cd frontend
+npm install
+npm run dev
 ```
 
 ---
 
-## 🔐 Privacy
+## 🧪 Example Prompts
 
-- Fully local execution
-- No external API calls
-- No data leaves your machine
-
----
-
-## 🧩 Tech Stack
-
-- Python
-- FastAPI
-- OpenAI SDK
-- LM Studio
-- SQLite
+- Explain how the internet works
+- Give me a Python example to read a file
+- Compare Python and JavaScript in a table
+- Give me a step-by-step plan to learn React
 
 ---
 
-## 🚀 Roadmap
+## 🔥 Highlights (For Recruiters)
 
-- Streaming API
-- Web UI
-- RAG support
+- Built a **full-stack AI application**
+- Implemented **real-time streaming LLM responses**
+- Designed **session-based chat architecture**
+- Applied **modern React component structure**
+- Focused on **product-level UX**
 
 ---
 
-## 📝 Goal
+## 📌 License
 
-Building toward becoming an AI Application Engineer with real-world backend and LLM integration experience.
+This project is **not open source**.  
+All rights reserved.  
+Unauthorized copying, modification, or distribution is not permitted.
