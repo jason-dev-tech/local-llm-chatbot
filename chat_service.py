@@ -29,9 +29,12 @@ def build_rag_messages(session_id, user_input):
     if context_text:
         system_prompt = (
             f"{SYSTEM_PROMPT}\n\n"
-            "Use the provided context to answer the user's question when it is relevant. "
-            "If the context is not relevant, answer normally. "
-            "Do not make up facts that are not supported by the context.\n\n"
+            "You are answering with the help of retrieved knowledge base context.\n"
+            "Use the context below as the primary source when it is relevant to the user's question.\n"
+            "If the context contains the answer, base your response on it.\n"
+            "If the context is only partially relevant, use it carefully and make that clear.\n"
+            "If the context does not contain enough information, say so clearly instead of making up facts.\n"
+            "Keep the answer clear, concise, and grounded in the provided context when possible.\n\n"
             f"Context:\n{context_text}"
         )
     else:
