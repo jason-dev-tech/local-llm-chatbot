@@ -1,0 +1,1 @@
+Retrieval-Augmented Generation improves chatbot responses by retrieving relevant external knowledge before generating an answer.
