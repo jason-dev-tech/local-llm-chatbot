@@ -11,6 +11,7 @@ import {
   deleteSession,
 } from "./api/chat";
 import SessionSidebar from "./components/SessionSidebar";
+import ChatInput from "./components/ChatInput";
 
 function App() {
   const [sessions, setSessions] = useState<SessionItem[]>([]);
@@ -25,7 +26,10 @@ function App() {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const currentSession = useMemo(() => {
-    return sessions.find((session) => session.session_id === currentSessionId) || null;
+    return (
+      sessions.find((session) => session.session_id === currentSessionId) ||
+      null
+    );
   }, [sessions, currentSessionId]);
 
   const currentSessionDisplayTitle =
@@ -94,11 +98,11 @@ function App() {
 
   async function handleRenameSession(
     sessionId: string,
-    currentTitle: string | null
+    currentTitle: string | null,
   ) {
     const nextTitle = window.prompt(
       "Enter a new session title:",
-      currentTitle || sessionId
+      currentTitle || sessionId,
     );
 
     if (!nextTitle) {
@@ -194,7 +198,9 @@ function App() {
             if (updated[lastIndex].role === "assistant") {
               const currentContent = updated[lastIndex].content;
               const nextContent =
-                currentContent === "Thinking..." ? token : currentContent + token;
+                currentContent === "Thinking..."
+                  ? token
+                  : currentContent + token;
 
               updated[lastIndex] = {
                 ...updated[lastIndex],
@@ -242,7 +248,7 @@ function App() {
 
             return updated;
           });
-        }
+        },
       );
     } catch (error) {
       console.error(error);
@@ -325,18 +331,13 @@ function App() {
           <div ref={messagesEndRef} />
         </div>
 
-        <form className="chat-input-area" onSubmit={handleSendMessage}>
-          <textarea
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            placeholder="Type your message..."
-            rows={3}
-            disabled={!currentSessionId || isSending}
-          />
-          <button type="submit" disabled={!currentSessionId || isSending}>
-            {isSending ? "Thinking..." : "Send"}
-          </button>
-        </form>
+        <ChatInput
+          input={input}
+          isSending={isSending}
+          disabled={!currentSessionId}
+          onInputChange={setInput}
+          onSubmit={handleSendMessage}
+        />
       </main>
     </div>
   );
