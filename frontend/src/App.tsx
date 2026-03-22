@@ -17,6 +17,9 @@ function App() {
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -24,7 +27,8 @@ function App() {
     return sessions.find((session) => session.session_id === currentSessionId) || null;
   }, [sessions, currentSessionId]);
 
-  const currentSessionDisplayTitle = currentSession?.title || currentSessionId || "No session selected";
+  const currentSessionDisplayTitle =
+    currentSession?.title || currentSessionId || "No session selected";
 
   useEffect(() => {
     loadSessions();
@@ -32,9 +36,12 @@ function App() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, isSending]);
 
   async function loadSessions() {
+    setIsLoadingSessions(true);
+    setErrorMessage("");
+
     try {
       const sessionList = await fetchSessions();
       setSessions(sessionList);
@@ -42,26 +49,35 @@ function App() {
       if (sessionList.length > 0 && !currentSessionId) {
         const firstSessionId = sessionList[0].session_id;
         setCurrentSessionId(firstSessionId);
-
-        const msgs = await fetchMessages(firstSessionId);
-        setMessages(msgs);
+        await loadSessionMessages(firstSessionId);
       }
     } catch (error) {
       console.error(error);
+      setErrorMessage("Failed to load sessions.");
+    } finally {
+      setIsLoadingSessions(false);
     }
   }
 
   async function loadSessionMessages(sessionId: string) {
+    setIsLoadingMessages(true);
+    setErrorMessage("");
+
     try {
       const msgs = await fetchMessages(sessionId);
       setMessages(msgs);
       setCurrentSessionId(sessionId);
     } catch (error) {
       console.error(error);
+      setErrorMessage("Failed to load messages.");
+    } finally {
+      setIsLoadingMessages(false);
     }
   }
 
   async function handleCreateSession() {
+    setErrorMessage("");
+
     try {
       const newSession = await createSession();
       const updated = await fetchSessions();
@@ -71,6 +87,7 @@ function App() {
       setMessages([]);
     } catch (error) {
       console.error(error);
+      setErrorMessage("Failed to create a new session.");
     }
   }
 
@@ -95,12 +112,15 @@ function App() {
       return;
     }
 
+    setErrorMessage("");
+
     try {
       await renameSession(sessionId, trimmedTitle);
       const updated = await fetchSessions();
       setSessions(updated);
     } catch (error) {
       console.error(error);
+      setErrorMessage("Failed to rename the session.");
     }
   }
 
@@ -114,6 +134,8 @@ function App() {
     if (!confirmed) {
       return;
     }
+
+    setErrorMessage("");
 
     try {
       await deleteSession(sessionId);
@@ -135,6 +157,7 @@ function App() {
       }
     } catch (error) {
       console.error(error);
+      setErrorMessage("Failed to delete the session.");
     }
   }
 
@@ -146,6 +169,8 @@ function App() {
       return;
     }
 
+    setErrorMessage("");
+
     const userMessage: MessageItem = {
       role: "user",
       content: trimmedInput,
@@ -153,27 +178,34 @@ function App() {
 
     const assistantPlaceholder: MessageItem = {
       role: "assistant",
-      content: "",
+      content: "Thinking...",
     };
 
     setMessages((prev) => [...prev, userMessage, assistantPlaceholder]);
-
     setInput("");
     setIsSending(true);
 
     try {
+      let hasReceivedToken = false;
+
       await streamChat(
         currentSessionId,
         trimmedInput,
         (token) => {
+          hasReceivedToken = true;
+
           setMessages((prev) => {
             const updated = [...prev];
             const lastIndex = updated.length - 1;
 
             if (updated[lastIndex].role === "assistant") {
+              const currentContent = updated[lastIndex].content;
+              const nextContent =
+                currentContent === "Thinking..." ? token : currentContent + token;
+
               updated[lastIndex] = {
                 ...updated[lastIndex],
-                content: updated[lastIndex].content + token,
+                content: nextContent,
               };
             }
 
@@ -181,15 +213,61 @@ function App() {
           });
         },
         async () => {
+          if (!hasReceivedToken) {
+            setMessages((prev) => {
+              const updated = [...prev];
+              const lastIndex = updated.length - 1;
+
+              if (updated[lastIndex]?.role === "assistant") {
+                updated[lastIndex] = {
+                  ...updated[lastIndex],
+                  content: "No response received.",
+                };
+              }
+
+              return updated;
+            });
+          }
+
           const updatedSessions = await fetchSessions();
           setSessions(updatedSessions);
         },
-        (errorMessage) => {
-          console.error(errorMessage);
+        (streamErrorMessage) => {
+          console.error(streamErrorMessage);
+          setErrorMessage(streamErrorMessage || "Streaming failed.");
+
+          setMessages((prev) => {
+            const updated = [...prev];
+            const lastIndex = updated.length - 1;
+
+            if (updated[lastIndex]?.role === "assistant") {
+              updated[lastIndex] = {
+                ...updated[lastIndex],
+                content: "Error: failed to get response.",
+              };
+            }
+
+            return updated;
+          });
         }
       );
     } catch (error) {
       console.error(error);
+      setErrorMessage("Failed to send the message.");
+
+      setMessages((prev) => {
+        const updated = [...prev];
+        const lastIndex = updated.length - 1;
+
+        if (updated[lastIndex]?.role === "assistant") {
+          updated[lastIndex] = {
+            ...updated[lastIndex],
+            content: "Error: failed to get response.",
+          };
+        }
+
+        return updated;
+      });
     } finally {
       setIsSending(false);
     }
@@ -204,48 +282,56 @@ function App() {
       <aside className="sidebar">
         <div className="sidebar-header">
           <h1>Local AI Chatbot</h1>
-          <button onClick={handleCreateSession}>+ New Chat</button>
+          <button onClick={handleCreateSession} disabled={isLoadingSessions}>
+            {isLoadingSessions ? "Loading..." : "+ New Chat"}
+          </button>
         </div>
 
         <div className="session-list">
-          {sessions.map((session) => (
-            <div
-              key={session.session_id}
-              className={`session-item ${
-                session.session_id === currentSessionId ? "active" : ""
-              }`}
-              onClick={() => loadSessionMessages(session.session_id)}
-            >
-              <div className="session-main">
-                <span className="session-title">
-                  {session.title || session.session_id}
-                </span>
-              </div>
+          {isLoadingSessions && sessions.length === 0 ? (
+            <div className="empty-state">Loading sessions...</div>
+          ) : sessions.length === 0 ? (
+            <div className="empty-state">No sessions yet.</div>
+          ) : (
+            sessions.map((session) => (
+              <div
+                key={session.session_id}
+                className={`session-item ${
+                  session.session_id === currentSessionId ? "active" : ""
+                }`}
+                onClick={() => loadSessionMessages(session.session_id)}
+              >
+                <div className="session-main">
+                  <span className="session-title">
+                    {session.title || session.session_id}
+                  </span>
+                </div>
 
-              <div className="session-actions">
-                <button
-                  type="button"
-                  onClick={(event) =>
-                    handleRenameSession(
-                      event,
-                      session.session_id,
-                      session.title
-                    )
-                  }
-                >
-                  Rename
-                </button>
-                <button
-                  type="button"
-                  onClick={(event) =>
-                    handleDeleteSession(event, session.session_id)
-                  }
-                >
-                  Delete
-                </button>
+                <div className="session-actions">
+                  <button
+                    type="button"
+                    onClick={(event) =>
+                      handleRenameSession(
+                        event,
+                        session.session_id,
+                        session.title
+                      )
+                    }
+                  >
+                    Rename
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(event) =>
+                      handleDeleteSession(event, session.session_id)
+                    }
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </aside>
 
@@ -254,8 +340,25 @@ function App() {
           <h2>{currentSessionDisplayTitle}</h2>
         </div>
 
+        {errorMessage ? (
+          <div
+            style={{
+              margin: "12px 20px 0",
+              padding: "10px 12px",
+              borderRadius: "8px",
+              background: "#fee2e2",
+              color: "#991b1b",
+              fontSize: "14px",
+            }}
+          >
+            {errorMessage}
+          </div>
+        ) : null}
+
         <div className="message-list">
-          {messages.length === 0 ? (
+          {isLoadingMessages ? (
+            <div className="empty-state">Loading messages...</div>
+          ) : messages.length === 0 ? (
             <div className="empty-state">
               Start a new conversation with your local AI chatbot.
             </div>
@@ -284,7 +387,7 @@ function App() {
             disabled={!currentSessionId || isSending}
           />
           <button type="submit" disabled={!currentSessionId || isSending}>
-            {isSending ? "Streaming..." : "Send"}
+            {isSending ? "Thinking..." : "Send"}
           </button>
         </form>
       </main>
