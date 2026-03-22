@@ -10,6 +10,7 @@ from db import (
     get_session_title,
 )
 from llm import stream_response, generate_session_title, generate_response
+from rag.retrieval import retrieve_relevant_chunks, build_context_text
 
 SYSTEM_PROMPT = "You are a helpful assistant. Answer clearly and concisely."
 
@@ -17,6 +18,26 @@ SYSTEM_PROMPT = "You are a helpful assistant. Answer clearly and concisely."
 def build_messages(session_id):
     history = get_recent_messages(session_id, limit=10)
     return [{"role": "system", "content": SYSTEM_PROMPT}] + history
+
+
+def build_rag_messages(session_id, user_input):
+    history = get_recent_messages(session_id, limit=10)
+
+    chunks = retrieve_relevant_chunks(user_input, top_k=3)
+    context_text = build_context_text(chunks)
+
+    if context_text:
+        system_prompt = (
+            f"{SYSTEM_PROMPT}\n\n"
+            "Use the provided context to answer the user's question when it is relevant. "
+            "If the context is not relevant, answer normally. "
+            "Do not make up facts that are not supported by the context.\n\n"
+            f"Context:\n{context_text}"
+        )
+    else:
+        system_prompt = SYSTEM_PROMPT
+
+    return [{"role": "system", "content": system_prompt}] + history
 
 
 def maybe_update_session_title(session_id, user_input):
@@ -48,7 +69,7 @@ def send_message_and_stream(session_id, user_input):
 
     maybe_update_session_title(session_id, user_input)
 
-    messages = build_messages(session_id)
+    messages = build_rag_messages(session_id, user_input)
     answer_parts = []
 
     for token in stream_response(messages):
@@ -64,7 +85,7 @@ def send_message(session_id, user_input):
 
     maybe_update_session_title(session_id, user_input)
 
-    messages = build_messages(session_id)
+    messages = build_rag_messages(session_id, user_input)
     answer = generate_response(messages)
 
     save_message(session_id, "assistant", answer)
