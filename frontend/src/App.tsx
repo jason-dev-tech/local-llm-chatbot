@@ -12,6 +12,7 @@ import {
 } from "./api/chat";
 import SessionSidebar from "./components/SessionSidebar";
 import ChatInput from "./components/ChatInput";
+import MessageList from "./components/MessageList";
 
 function App() {
   const [sessions, setSessions] = useState<SessionItem[]>([]);
@@ -308,28 +309,11 @@ function App() {
           </div>
         ) : null}
 
-        <div className="message-list">
-          {isLoadingMessages ? (
-            <div className="empty-state">Loading messages...</div>
-          ) : messages.length === 0 ? (
-            <div className="empty-state">
-              Start a new conversation with your local AI chatbot.
-            </div>
-          ) : (
-            messages.map((message, index) => (
-              <div
-                key={`${message.role}-${index}`}
-                className={`message ${message.role}`}
-              >
-                <div className="message-role">
-                  {message.role === "user" ? "You" : "AI"}
-                </div>
-                <div className="message-content">{message.content}</div>
-              </div>
-            ))
-          )}
-          <div ref={messagesEndRef} />
-        </div>
+        <MessageList
+          messages={messages}
+          isLoadingMessages={isLoadingMessages}
+          messagesEndRef={messagesEndRef}
+        />
 
         <ChatInput
           input={input}
