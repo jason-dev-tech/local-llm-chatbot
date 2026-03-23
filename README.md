@@ -147,18 +147,24 @@ npm run dev
 
 ---
 
-# 🔥 Highlights (For Recruiters)
+## 🔥 Highlights
 
-* Built a **production-style RAG AI application**
-* Designed an **end-to-end RAG pipeline**:
+- Built a **production-style RAG-based AI application** integrating LLM, vector search, and full-stack architecture  
 
-  * ingestion → embedding → retrieval → generation
-* Implemented **semantic search with vector database (Chroma)**
-* Developed **intent-aware query routing** for conditional RAG execution
-* Implemented **deterministic post-processing** for reliable source attribution
-* Built **real-time streaming LLM responses with frontend synchronization**
-* Designed **multi-session architecture with persistent storage**
-* Focused on **system design, UX, and AI integration**
+- Designed an **end-to-end RAG pipeline**:
+  ingestion → embedding → retrieval → generation, enabling knowledge-grounded responses  
+
+- Implemented **semantic search using Chroma vector database** to retrieve relevant context efficiently  
+
+- Developed **intent-aware query routing**, dynamically switching between general LLM responses and retrieval-based answering  
+
+- Implemented **deterministic post-processing for source attribution**, improving transparency and trustworthiness of responses  
+
+- Built **real-time streaming LLM responses with frontend synchronization**, enhancing user experience  
+
+- Designed a **multi-session chat architecture with persistent storage (SQLite)** for scalable conversation management  
+
+- Focused on **system design, user experience, and practical AI integration**, rather than isolated model usage  
 
 ---
 
