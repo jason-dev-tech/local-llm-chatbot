@@ -92,7 +92,7 @@ npm run dev
 
 ---
 
-## 🔥 Highlights (For Recruiters)
+## 🔥 Highlights
 
 - Built a **full-stack AI application**
 - Implemented **real-time streaming LLM responses**
