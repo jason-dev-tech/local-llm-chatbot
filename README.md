@@ -121,7 +121,7 @@ local-llm-chatbot/
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn main:app --reload
+python -m uvicorn main:app --reload
 ```
 
 ## 2. Start Frontend
