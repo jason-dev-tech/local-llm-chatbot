@@ -118,6 +118,9 @@ local-llm-chatbot/
 ## 1. Start Backend
 
 ```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
@@ -127,6 +130,16 @@ uvicorn main:app --reload
 cd frontend
 npm install
 npm run dev
+```
+
+Run the frontend from the `frontend` directory.
+
+## Common Issues
+
+If you see `ModuleNotFoundError` (for example `uvicorn` or `chromadb`), install the backend dependencies with:
+
+```bash
+pip install -r requirements.txt
 ```
 
 ---
