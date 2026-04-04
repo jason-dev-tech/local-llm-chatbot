@@ -9,11 +9,17 @@ from db import (
     get_session_messages,
     get_session_title,
 )
-from llm import stream_response, generate_session_title, generate_response
+from llm import stream_response, generate_response
+from llm_langchain import generate_langchain_response
 from rag.retrieval import retrieve_relevant_chunks, build_context_text
 from rag.router import should_use_rag
 
 SYSTEM_PROMPT = "You are a helpful assistant. Answer clearly and concisely."
+SESSION_TITLE_PROMPT = (
+    "Generate a short and concise title for a chat session based on the user's first message. "
+    "Return only the title, with no quotes or extra explanation. Keep it under 8 words.\n\n"
+    "User message:\n{user_message}"
+)
 
 
 def build_messages(session_id):
@@ -90,7 +96,8 @@ def maybe_update_session_title(session_id, user_input):
         return
 
     try:
-        title = generate_session_title(user_input).strip()
+        title_prompt = SESSION_TITLE_PROMPT.format(user_message=user_input)
+        title = generate_langchain_response(title_prompt).strip()
 
         if not title:
             return
