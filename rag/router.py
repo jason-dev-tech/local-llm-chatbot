@@ -1,15 +1,22 @@
 from dataclasses import dataclass
 
 
-RAG_TRIGGER_KEYWORDS = {
+RAG_STRONG_TRIGGERS = {
     "rag",
     "retrieval",
     "retrieval-augmented",
     "knowledge base",
+    "semantic search",
+    "context",
+}
+
+RAG_CONTEXT_TERMS = {
     "knowledge",
     "document",
     "documents",
-    "context",
+}
+
+RAG_INTENT_TERMS = {
     "explain",
     "what is",
     "how does",
@@ -57,11 +64,20 @@ def get_routing_decision(user_input: str) -> RoutingDecision:
             confidence=0.95,
         )
 
-    if any(keyword in normalized for keyword in RAG_TRIGGER_KEYWORDS):
+    if any(keyword in normalized for keyword in RAG_STRONG_TRIGGERS):
         return RoutingDecision(
             route="rag",
-            reason="keyword_match",
+            reason="strong_keyword_match",
             confidence=0.9,
+        )
+
+    if any(term in normalized for term in RAG_CONTEXT_TERMS) and any(
+        term in normalized for term in RAG_INTENT_TERMS
+    ):
+        return RoutingDecision(
+            route="rag",
+            reason="contextual_keyword_match",
+            confidence=0.8,
         )
 
     return RoutingDecision(
