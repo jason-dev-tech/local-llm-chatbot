@@ -9,7 +9,7 @@ from db import (
     get_session_messages,
     get_session_title,
 )
-from llm import stream_response, generate_response
+from llm import generate_response
 from llm_langchain import (
     generate_langchain_response,
     stream_langchain_chat_response,
@@ -119,7 +119,7 @@ def send_message_and_stream(session_id, user_input):
     answer_parts = []
 
     if chunks:
-        stream = stream_response(messages)
+        stream = stream_langchain_chat_response(messages[0]["content"], user_input)
     else:
         stream = stream_langchain_chat_response(SYSTEM_PROMPT, user_input)
 
