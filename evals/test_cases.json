@@ -1,0 +1,38 @@
+[
+  {
+    "id": "chat_001",
+    "query": "Hello",
+    "expected_route": "chat",
+    "must_include_sources": false
+  },
+  {
+    "id": "chat_002",
+    "query": "Tell me a joke",
+    "expected_route": "chat",
+    "must_include_sources": false
+  },
+  {
+    "id": "chat_003",
+    "query": "What can you do?",
+    "expected_route": "chat",
+    "must_include_sources": false
+  },
+  {
+    "id": "rag_001",
+    "query": "What is Retrieval-Augmented Generation?",
+    "expected_route": "rag",
+    "must_include_sources": true
+  },
+  {
+    "id": "rag_002",
+    "query": "How does RAG improve chatbot quality?",
+    "expected_route": "rag",
+    "must_include_sources": true
+  },
+  {
+    "id": "rag_003",
+    "query": "Summarize the knowledge base context about semantic search",
+    "expected_route": "rag",
+    "must_include_sources": true
+  }
+]
