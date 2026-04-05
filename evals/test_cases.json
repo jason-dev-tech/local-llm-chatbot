@@ -34,5 +34,41 @@
     "query": "Summarize the knowledge base context about semantic search",
     "expected_route": "rag",
     "must_include_sources": true
+  },
+  {
+    "id": "chat_004",
+    "query": "Can you explain a joke about office life?",
+    "expected_route": "chat",
+    "must_include_sources": false
+  },
+  {
+    "id": "chat_005",
+    "query": "Hey, how are you and what do you know about yourself?",
+    "expected_route": "chat",
+    "must_include_sources": false
+  },
+  {
+    "id": "chat_006",
+    "query": "I lost my document, can you help me think of where I left it?",
+    "expected_route": "chat",
+    "must_include_sources": false
+  },
+  {
+    "id": "rag_004",
+    "query": "Hi, can you explain how semantic search works in this knowledge base?",
+    "expected_route": "rag",
+    "must_include_sources": true
+  },
+  {
+    "id": "rag_005",
+    "query": "Can you summarize the documents related to retrieval and context handling?",
+    "expected_route": "rag",
+    "must_include_sources": true
+  },
+  {
+    "id": "rag_006",
+    "query": "Why does retrieval-augmented generation help when answering questions from documents?",
+    "expected_route": "rag",
+    "must_include_sources": true
   }
 ]
