@@ -33,11 +33,13 @@ def retrieve_relevant_chunks(query: str, top_k: int = 3) -> list[dict]:
 
     for document, distance in scored_documents:
         metadata = document.metadata or {}
+        source = metadata.get("source", "unknown")
         chunks.append(
             {
                 "content": document.page_content,
                 "metadata": metadata,
                 "distance": distance,
+                "source": source,
             }
         )
 
