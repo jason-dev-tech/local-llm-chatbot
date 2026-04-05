@@ -1,5 +1,6 @@
 """Minimal LangChain wrapper for the local OpenAI-compatible chat model."""
 
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
 import config
@@ -52,6 +53,19 @@ def generate_langchain_response(user_message: str) -> str:
 def stream_langchain_response(user_message: str):
     """Yield plain-text response chunks for a single user message."""
     for chunk in get_langchain_chat_model().stream(user_message):
+        text = _extract_text_content(getattr(chunk, "content", ""), strip=False)
+        if text:
+            yield text
+
+
+def stream_langchain_chat_response(system_prompt: str, user_message: str):
+    """Yield plain-text chunks for a system-plus-user chat exchange."""
+    messages = [
+        SystemMessage(content=system_prompt),
+        HumanMessage(content=user_message),
+    ]
+
+    for chunk in get_langchain_chat_model().stream(messages):
         text = _extract_text_content(getattr(chunk, "content", ""), strip=False)
         if text:
             yield text
