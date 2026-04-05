@@ -15,7 +15,7 @@ from llm_langchain import (
     stream_langchain_chat_response,
 )
 from rag.retrieval import retrieve_relevant_chunks, build_context_text
-from rag.router import should_use_rag
+from rag.router import get_routing_decision
 
 SYSTEM_PROMPT = "You are a helpful assistant. Answer clearly and concisely."
 SESSION_TITLE_PROMPT = (
@@ -32,8 +32,9 @@ def build_messages(session_id):
 
 def build_rag_messages(session_id, user_input):
     history = get_recent_messages(session_id, limit=10)
+    decision = get_routing_decision(user_input)
 
-    if not should_use_rag(user_input):
+    if decision.route != "rag":
         messages = [{"role": "system", "content": SYSTEM_PROMPT}] + history
         return messages, []
 
