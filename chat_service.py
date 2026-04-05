@@ -10,7 +10,10 @@ from db import (
     get_session_title,
 )
 from llm import stream_response, generate_response
-from llm_langchain import generate_langchain_response
+from llm_langchain import (
+    generate_langchain_response,
+    stream_langchain_chat_response,
+)
 from rag.retrieval import retrieve_relevant_chunks, build_context_text
 from rag.router import should_use_rag
 
@@ -115,7 +118,12 @@ def send_message_and_stream(session_id, user_input):
     messages, chunks = build_rag_messages(session_id, user_input)
     answer_parts = []
 
-    for token in stream_response(messages):
+    if chunks:
+        stream = stream_response(messages)
+    else:
+        stream = stream_langchain_chat_response(SYSTEM_PROMPT, user_input)
+
+    for token in stream:
         answer_parts.append(token)
         yield token
 
