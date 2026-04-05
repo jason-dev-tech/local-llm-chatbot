@@ -9,6 +9,7 @@ from db import (
     get_session_messages,
     get_session_title,
 )
+
 from llm import generate_response
 from llm_langchain import (
     generate_langchain_response,
@@ -33,6 +34,10 @@ def build_messages(session_id):
 def build_rag_messages(session_id, user_input):
     history = get_recent_messages(session_id, limit=10)
     decision = get_routing_decision(user_input)
+    print(
+        f"Routing decision: route={decision.route} "
+        f"reason={decision.reason} confidence={decision.confidence}"
+    )
 
     if decision.route != "rag":
         messages = [{"role": "system", "content": SYSTEM_PROMPT}] + history
