@@ -55,6 +55,7 @@ The system supports **real-time streaming**, **multi-session chat**, and **inten
 * Python
 * SQLite (chat persistence)
 * Chroma (vector database)
+* LangChain
 * StreamingResponse (LLM streaming)
 
 ## Frontend
@@ -68,6 +69,7 @@ The system supports **real-time streaming**, **multi-session chat**, and **inten
 
 * Local LLM (LM Studio)
 * OpenAI-compatible API
+* LangChain for model orchestration and streaming
 * Embedding model for semantic search
 
 ---
@@ -174,6 +176,8 @@ pip install -r requirements.txt
 - Implemented **deterministic post-processing for source attribution**, improving transparency and trustworthiness of responses  
 
 - Built **real-time streaming LLM responses with frontend synchronization**, enhancing user experience  
+
+- Incrementally migrated core AI flows to **LangChain** for streaming chat, **Chroma-based RAG retrieval**, and message-based chat handling  
 
 - Designed a **multi-session chat architecture with persistent storage (SQLite)** for scalable conversation management  
 
