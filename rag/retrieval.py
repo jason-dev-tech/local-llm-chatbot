@@ -1,24 +1,41 @@
+from langchain_chroma import Chroma
+
+from config import CHROMA_PERSIST_DIR, RAG_COLLECTION_NAME
 from rag.embedding import EmbeddingService
-from rag.vector_store import VectorStore
+
+
+class _EmbeddingAdapter:
+    """Adapt the existing embedding service to LangChain's embedding interface."""
+
+    def __init__(self) -> None:
+        self.embedding_service = EmbeddingService()
+
+    def embed_query(self, text: str) -> list[float]:
+        return self.embedding_service.embed_text(text)
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [self.embedding_service.embed_text(text) for text in texts]
+
+
+def _get_vector_store() -> Chroma:
+    return Chroma(
+        collection_name=RAG_COLLECTION_NAME,
+        persist_directory=CHROMA_PERSIST_DIR,
+        embedding_function=_EmbeddingAdapter(),
+    )
 
 
 def retrieve_relevant_chunks(query: str, top_k: int = 3) -> list[dict]:
-    embedding_service = EmbeddingService()
-    vector_store = VectorStore()
-
-    query_embedding = embedding_service.embed_text(query)
-    results = vector_store.query(query_embedding, top_k=top_k)
-
-    documents = results.get("documents", [[]])[0]
-    metadatas = results.get("metadatas", [[]])[0]
-    distances = results.get("distances", [[]])[0]
+    vector_store = _get_vector_store()
+    scored_documents = vector_store.similarity_search_with_score(query, k=top_k)
 
     chunks = []
 
-    for document, metadata, distance in zip(documents, metadatas, distances):
+    for document, distance in scored_documents:
+        metadata = document.metadata or {}
         chunks.append(
             {
-                "content": document,
+                "content": document.page_content,
                 "metadata": metadata,
                 "distance": distance,
             }
