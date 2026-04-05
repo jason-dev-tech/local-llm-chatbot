@@ -1,3 +1,6 @@
+from dataclasses import dataclass
+
+
 RAG_TRIGGER_KEYWORDS = {
     "rag",
     "retrieval",
@@ -30,13 +33,43 @@ SMALL_TALK_INPUTS = {
 }
 
 
-def should_use_rag(user_input: str) -> bool:
+@dataclass(frozen=True)
+class RoutingDecision:
+    route: str
+    reason: str
+    confidence: float
+
+
+def get_routing_decision(user_input: str) -> RoutingDecision:
     normalized = user_input.strip().lower()
 
     if not normalized:
-        return False
+        return RoutingDecision(
+            route="chat",
+            reason="empty_input",
+            confidence=1.0,
+        )
 
     if normalized in SMALL_TALK_INPUTS:
-        return False
+        return RoutingDecision(
+            route="chat",
+            reason="small_talk_match",
+            confidence=0.95,
+        )
 
-    return any(keyword in normalized for keyword in RAG_TRIGGER_KEYWORDS)
+    if any(keyword in normalized for keyword in RAG_TRIGGER_KEYWORDS):
+        return RoutingDecision(
+            route="rag",
+            reason="keyword_match",
+            confidence=0.9,
+        )
+
+    return RoutingDecision(
+        route="chat",
+        reason="no_rag_trigger",
+        confidence=0.7,
+    )
+
+
+def should_use_rag(user_input: str) -> bool:
+    return get_routing_decision(user_input).route == "rag"
