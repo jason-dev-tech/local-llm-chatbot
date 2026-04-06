@@ -56,21 +56,52 @@ function splitMessageContent(content: string) {
   if (index === -1) {
     return {
       mainContent: content,
-      sources: [],
+      sourceSections: [] as Array<{ title: string; items: string[] }>,
     };
   }
 
   const mainContent = content.slice(0, index);
   const sourceBlock = content.slice(index + marker.length);
+  const sourceSections = [];
 
-  const sources = sourceBlock
-    .split("\n")
-    .map((line) => line.replace(/^- /, "").trim())
-    .filter(Boolean);
+  let currentSection: { title: string; items: string[] } | null = null;
+
+  for (const rawLine of sourceBlock.split("\n")) {
+    const line = rawLine.trim();
+
+    if (!line) {
+      continue;
+    }
+
+    if (line.endsWith(":")) {
+      if (currentSection && currentSection.items.length > 0) {
+        sourceSections.push(currentSection);
+      }
+
+      currentSection = {
+        title: line.slice(0, -1),
+        items: [],
+      };
+      continue;
+    }
+
+    if (!currentSection) {
+      currentSection = {
+        title: "Sources",
+        items: [],
+      };
+    }
+
+    currentSection.items.push(line.replace(/^- /, "").trim());
+  }
+
+  if (currentSection && currentSection.items.length > 0) {
+    sourceSections.push(currentSection);
+  }
 
   return {
     mainContent,
-    sources,
+    sourceSections,
   };
 }
 
@@ -90,9 +121,12 @@ function MessageList({
       ) : (
         messages.map((message, index) => {
           const isAssistant = message.role === "assistant";
-          const { mainContent, sources } = isAssistant
+          const { mainContent, sourceSections } = isAssistant
             ? splitMessageContent(message.content)
-            : { mainContent: message.content, sources: [] as string[] };
+            : {
+                mainContent: message.content,
+                sourceSections: [] as Array<{ title: string; items: string[] }>,
+              };
 
           return (
             <div
@@ -119,14 +153,19 @@ function MessageList({
                   {mainContent}
                 </ReactMarkdown>
 
-                {isAssistant && sources.length > 0 && (
+                {isAssistant && sourceSections.length > 0 && (
                   <div className="sources-block">
                     <div className="sources-title">Sources</div>
-                    <ul className="sources-list">
-                      {sources.map((source) => (
-                        <li key={source}>{source}</li>
-                      ))}
-                    </ul>
+                    {sourceSections.map((section) => (
+                      <div key={section.title}>
+                        <div className="sources-title">{section.title}</div>
+                        <ul className="sources-list">
+                          {section.items.map((source) => (
+                            <li key={`${section.title}-${source}`}>{source}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

@@ -29,6 +29,11 @@ SESSION_TITLE_PROMPT = (
     "User message:\n{user_message}"
 )
 CITATION_PATTERN = re.compile(r"\[(\d+)\]")
+NON_STANDARD_SOURCE_CITATION_PATTERN = re.compile(r"\[source\s+(\d+)\]", re.IGNORECASE)
+ATTRIBUTION_SECTION_PATTERN = re.compile(
+    r"(?:^|\n\n)(?:sources used|retrieved context):\n(?:- .*(?:\n|$))+",
+    re.IGNORECASE,
+)
 WORD_PATTERN = re.compile(r"\b[a-z0-9]+\b")
 
 
@@ -123,6 +128,12 @@ def append_citation_marker(text, citation_number):
     stripped = text.rstrip()
     trailing = text[len(stripped):]
     return f"{stripped} [{citation_number}]{trailing}"
+
+
+def normalize_answer_body(answer):
+    normalized = NON_STANDARD_SOURCE_CITATION_PATTERN.sub(r"[\1]", answer)
+    normalized = ATTRIBUTION_SECTION_PATTERN.sub("", normalized)
+    return normalized.strip()
 
 
 def apply_inline_citations(answer, chunks):
@@ -226,16 +237,38 @@ def extract_source_list(chunks):
     ]
 
 
+def extract_cited_source_numbers(answer):
+    return {int(match.group(1)) for match in CITATION_PATTERN.finditer(answer)}
+
+
 def append_sources_to_answer(answer, chunks):
     sources = extract_source_list(chunks)
 
     if not sources:
         return answer
 
-    source_lines = [f"- [{source['number']}] {source['label']}" for source in sources]
-    source_text = "\n".join(source_lines)
+    cited_source_numbers = extract_cited_source_numbers(answer)
+    used_sources = [source for source in sources if source["number"] in cited_source_numbers]
+    retrieved_context_sources = [
+        source for source in sources if source["number"] not in cited_source_numbers
+    ]
 
-    return f"{answer}\n\nSources:\n{source_text}"
+    sections = []
+
+    if used_sources:
+        used_source_lines = [f"- [{source['number']}] {source['label']}" for source in used_sources]
+        sections.append(f"Sources used:\n" + "\n".join(used_source_lines))
+
+    if retrieved_context_sources:
+        retrieved_context_lines = [
+            f"- [{source['number']}] {source['label']}" for source in retrieved_context_sources
+        ]
+        sections.append(f"Retrieved context:\n" + "\n".join(retrieved_context_lines))
+
+    if not sections:
+        return answer
+
+    return f"{answer}\n\nSources:\n" + "\n\n".join(sections)
 
 
 def maybe_update_session_title(session_id, user_input):
@@ -281,6 +314,7 @@ def send_message_and_stream(session_id, user_input):
         yield token
 
     answer = "".join(answer_parts)
+    answer = normalize_answer_body(answer)
     answer = apply_inline_citations(answer, chunks)
     answer = append_sources_to_answer(answer, chunks)
     save_message(session_id, "assistant", answer)
@@ -293,6 +327,7 @@ def send_message(session_id, user_input):
 
     messages, chunks = build_rag_messages(session_id, user_input)
     answer = generate_response(messages)
+    answer = normalize_answer_body(answer)
     answer = apply_inline_citations(answer, chunks)
     answer = append_sources_to_answer(answer, chunks)
 
