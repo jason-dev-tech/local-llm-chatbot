@@ -28,11 +28,16 @@ The system supports **real-time streaming**, **multi-session chat**, and **inten
 * Semantic search over local knowledge base (Chroma)
 * Query embedding + similarity search (Top-K retrieval)
 * Dynamic **context injection into prompts**
+* Multi-source knowledge file support for retrieval and attribution
 * Backend-controlled **inline citations** for RAG answers
 * Stable numbered citations aligned with the final **Sources** section
-* Improved source labels for readability (for example, file names instead of raw metadata)
+* Normalized source metadata and cleaner source labels for readability
 * **Deterministic source attribution** (post-processing)
 * **Intent-aware routing** (only trigger RAG when needed)
+
+## Phase 2 Summary
+
+Phase 2 extends the RAG layer with multi-source retrieval support, backend-controlled inline citations, and stable numbered sources that stay aligned with the final Sources section. Source metadata is normalized for cleaner attribution, source labels are more readable, and deterministic eval coverage now checks routing, citations, source labels, and multi-source behavior.
 
 ## 🗂 Session Management
 
