@@ -20,6 +20,7 @@ from llm_langchain import (
 )
 from rag.retrieval import retrieve_relevant_chunks
 from rag.router import get_routing_decision
+from rag.source_metadata import resolve_chunk_source
 
 SYSTEM_PROMPT = "You are a helpful assistant. Answer clearly and concisely."
 SESSION_TITLE_PROMPT = (
@@ -40,7 +41,7 @@ def build_source_map(chunks):
     source_map = {}
 
     for chunk in chunks:
-        source = chunk.get("source") or chunk.get("metadata", {}).get("source") or "unknown"
+        source = resolve_chunk_source(chunk)
         if source not in source_map:
             source_map[source] = len(source_map) + 1
 
@@ -79,7 +80,7 @@ def build_citation_context_text(chunks):
     context_parts = []
 
     for chunk in chunks:
-        source = chunk.get("source") or chunk.get("metadata", {}).get("source") or "unknown"
+        source = resolve_chunk_source(chunk)
         source_number = source_map[source]
         content = chunk["content"]
         context_parts.append(f"[Source {source_number}] {source}\n{content}")
@@ -100,7 +101,7 @@ def choose_citation_number(text, chunks, source_map):
     best_score = 0
 
     for chunk in chunks:
-        source = chunk.get("source") or chunk.get("metadata", {}).get("source") or "unknown"
+        source = resolve_chunk_source(chunk)
         source_number = source_map[source]
         chunk_tokens = tokenize_text(chunk.get("content", ""))
         score = len(text_tokens & chunk_tokens)
@@ -211,7 +212,7 @@ def extract_source_list(chunks):
     source_metadata_map = {}
 
     for chunk in chunks:
-        source = chunk.get("source") or chunk.get("metadata", {}).get("source") or "unknown"
+        source = resolve_chunk_source(chunk)
         if source not in source_metadata_map:
             source_metadata_map[source] = chunk.get("metadata", {})
 

@@ -2,6 +2,7 @@ from langchain_chroma import Chroma
 
 from config import CHROMA_PERSIST_DIR, RAG_COLLECTION_NAME
 from rag.embedding import EmbeddingService
+from rag.source_metadata import resolve_chunk_source
 
 
 class _EmbeddingAdapter:
@@ -33,7 +34,7 @@ def retrieve_relevant_chunks(query: str, top_k: int = 3) -> list[dict]:
 
     for document, distance in scored_documents:
         metadata = document.metadata or {}
-        source = metadata.get("source", "unknown")
+        source = resolve_chunk_source({"metadata": metadata})
         chunks.append(
             {
                 "content": document.page_content,
@@ -53,7 +54,7 @@ def build_context_text(chunks: list[dict]) -> str:
     context_parts = []
 
     for index, chunk in enumerate(chunks, start=1):
-        source = chunk["metadata"].get("source", "unknown")
+        source = resolve_chunk_source(chunk)
         content = chunk["content"]
 
         context_parts.append(

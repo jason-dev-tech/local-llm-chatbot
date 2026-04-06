@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from config import KNOWLEDGE_DIR
+from rag.source_metadata import build_source_metadata
 
 
 SUPPORTED_EXTENSIONS = {".txt", ".md"}
@@ -18,7 +19,7 @@ def load_documents() -> list[dict]:
     knowledge_path = Path(KNOWLEDGE_DIR)
     documents = []
 
-    for file_path in knowledge_path.rglob("*"):
+    for file_path in sorted(knowledge_path.rglob("*")):
         if not file_path.is_file():
             continue
 
@@ -33,12 +34,7 @@ def load_documents() -> list[dict]:
         else:
             continue
 
-        documents.append(
-            {
-                "source": str(file_path),
-                "filename": file_path.name,
-                "content": content,
-            }
-        )
+        source_metadata = build_source_metadata(file_path)
+        documents.append({**source_metadata, "content": content})
 
     return documents

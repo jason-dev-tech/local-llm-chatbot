@@ -1,0 +1,18 @@
+RAG Manual
+
+Use Retrieval-Augmented Generation when you want a model to answer from a controlled knowledge base.
+
+Basic setup:
+1. Put documents into the knowledge folder.
+2. Run ingestion so each document is chunked and embedded.
+3. Store metadata for every chunk, including a stable source value.
+4. Retrieve the top matching chunks for each question.
+5. Build the prompt with retrieved context before generation.
+
+Practical guidance:
+- Keep chunks reasonably small so the retriever can isolate specific ideas.
+- Preserve document-level metadata so answers can point back to the original file.
+- Use clear source labels because they appear in citations and source lists.
+- Re-ingest documents after content changes so retrieval reflects the latest knowledge.
+
+RAG does not replace the language model. The model still writes the answer, but retrieval gives it the right context at the right time.

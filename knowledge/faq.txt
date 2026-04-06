@@ -1,0 +1,16 @@
+RAG FAQ
+
+Q: What does RAG stand for?
+A: RAG stands for Retrieval-Augmented Generation.
+
+Q: Why is RAG useful?
+A: It helps a model answer with external context, which can reduce hallucinations and improve trust.
+
+Q: What is retrieval in a RAG pipeline?
+A: Retrieval is the step where the system searches stored document chunks and selects the most relevant results for the current question.
+
+Q: What metadata is useful in RAG?
+A: Common metadata includes source, filename, chunk index, title, and other fields that help with attribution and debugging.
+
+Q: Why do source citations matter?
+A: Citations show where the answer came from and make it easier to verify the response against the original document.

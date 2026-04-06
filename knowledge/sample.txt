@@ -1,1 +1,12 @@
-Retrieval-Augmented Generation improves chatbot responses by retrieving relevant external knowledge before generating an answer.
+Retrieval-Augmented Generation, or RAG, is a pattern that combines search with text generation.
+
+In a RAG system, a user question is converted into an embedding and compared with embeddings from stored document chunks. The system retrieves the most relevant chunks and sends them to the language model as context.
+
+This approach helps a chatbot answer with grounded information instead of relying only on model memory. It is especially useful when the knowledge base changes over time or when answers must stay tied to local documents.
+
+Good RAG responses depend on three basic steps:
+1. Ingestion: load documents, split them into chunks, and store embeddings with metadata.
+2. Retrieval: find the chunks that are semantically similar to the user query.
+3. Generation: produce an answer that uses the retrieved context and cites the source when needed.
+
+RAG can improve accuracy, transparency, and maintainability. It also makes source attribution easier because each retrieved chunk can keep metadata such as the document name, source path, and chunk index.
