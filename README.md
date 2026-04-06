@@ -28,6 +28,9 @@ The system supports **real-time streaming**, **multi-session chat**, and **inten
 * Semantic search over local knowledge base (Chroma)
 * Query embedding + similarity search (Top-K retrieval)
 * Dynamic **context injection into prompts**
+* Backend-controlled **inline citations** for RAG answers
+* Stable numbered citations aligned with the final **Sources** section
+* Improved source labels for readability (for example, file names instead of raw metadata)
 * **Deterministic source attribution** (post-processing)
 * **Intent-aware routing** (only trigger RAG when needed)
 
