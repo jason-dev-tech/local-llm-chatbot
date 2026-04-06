@@ -1,3 +1,4 @@
+import os
 import re
 
 from db import (
@@ -44,6 +45,30 @@ def build_source_map(chunks):
             source_map[source] = len(source_map) + 1
 
     return source_map
+
+
+def format_source_label(source, metadata):
+    preferred_label = (
+        metadata.get("title")
+        or metadata.get("name")
+        or metadata.get("label")
+    )
+    if isinstance(preferred_label, str) and preferred_label.strip():
+        return preferred_label.strip()
+
+    if not isinstance(source, str) or not source.strip():
+        return "Unknown"
+
+    normalized_source = source.strip()
+    file_name = os.path.basename(normalized_source)
+
+    if file_name and file_name != normalized_source:
+        return file_name
+
+    if "/" in normalized_source or "\\" in normalized_source:
+        return file_name or normalized_source
+
+    return normalized_source.replace("_", " ").replace("-", " ").title()
 
 
 def build_citation_context_text(chunks):
@@ -183,8 +208,21 @@ def build_rag_messages(session_id, user_input):
 
 def extract_source_list(chunks):
     source_map = build_source_map(chunks)
+    source_metadata_map = {}
 
-    return sorted(source_map.items(), key=lambda item: item[1])
+    for chunk in chunks:
+        source = chunk.get("source") or chunk.get("metadata", {}).get("source") or "unknown"
+        if source not in source_metadata_map:
+            source_metadata_map[source] = chunk.get("metadata", {})
+
+    return [
+        {
+            "source": source,
+            "number": number,
+            "label": format_source_label(source, source_metadata_map.get(source, {})),
+        }
+        for source, number in sorted(source_map.items(), key=lambda item: item[1])
+    ]
 
 
 def append_sources_to_answer(answer, chunks):
@@ -193,7 +231,7 @@ def append_sources_to_answer(answer, chunks):
     if not sources:
         return answer
 
-    source_lines = [f"- [{number}] {source}" for source, number in sources]
+    source_lines = [f"- [{source['number']}] {source['label']}" for source in sources]
     source_text = "\n".join(source_lines)
 
     return f"{answer}\n\nSources:\n{source_text}"
