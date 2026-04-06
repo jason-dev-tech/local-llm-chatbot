@@ -21,19 +21,24 @@
     "id": "rag_001",
     "query": "What is Retrieval-Augmented Generation?",
     "expected_route": "rag",
-    "must_include_sources": true
+    "must_include_sources": true,
+    "check_source_labels": true
   },
   {
     "id": "rag_002",
     "query": "How does RAG improve chatbot quality?",
     "expected_route": "rag",
-    "must_include_sources": true
+    "must_include_sources": true,
+    "check_source_labels": true
   },
   {
     "id": "rag_003",
     "query": "Summarize the knowledge base context about semantic search",
     "expected_route": "rag",
-    "must_include_sources": true
+    "must_include_sources": true,
+    "min_distinct_sources": 2,
+    "min_source_entries": 2,
+    "check_source_labels": true
   },
   {
     "id": "chat_004",
@@ -57,17 +62,69 @@
     "id": "rag_004",
     "query": "Hi, can you explain how semantic search works in this knowledge base?",
     "expected_route": "rag",
-    "must_include_sources": true
+    "must_include_sources": true,
+    "check_source_labels": true
   },
   {
     "id": "rag_005",
     "query": "Can you summarize the documents related to retrieval and context handling?",
     "expected_route": "rag",
-    "must_include_sources": true
+    "must_include_sources": true,
+    "min_distinct_sources": 2,
+    "min_source_entries": 2,
+    "check_source_labels": true
   },
   {
     "id": "rag_006",
     "query": "Why does retrieval-augmented generation help when answering questions from documents?",
+    "expected_route": "rag",
+    "must_include_sources": true,
+    "check_source_labels": true
+  },
+  {
+    "id": "rag_007",
+    "query": "Summarize the RAG manual and FAQ about metadata and citations",
+    "expected_route": "rag",
+    "must_include_sources": true,
+    "min_distinct_sources": 2,
+    "min_source_entries": 2,
+    "check_source_labels": true
+  },
+  {
+    "id": "rag_008",
+    "query": "In the knowledge base FAQ, what does it say about metadata and why do citations matter?",
+    "expected_route": "rag",
+    "must_include_sources": true,
+    "check_source_labels": true
+  },
+  {
+    "id": "rag_009",
+    "query": "Explain the setup steps in the knowledge base manual",
+    "expected_route": "rag",
+    "must_include_sources": true,
+    "check_source_labels": true
+  },
+  {
+    "id": "chat_007",
+    "query": "Thanks",
+    "expected_route": "chat",
+    "must_include_sources": false
+  },
+  {
+    "id": "chat_008",
+    "query": "Goodbye",
+    "expected_route": "chat",
+    "must_include_sources": false
+  },
+  {
+    "id": "chat_009",
+    "query": "Can you summarize my meeting notes?",
+    "expected_route": "chat",
+    "must_include_sources": false
+  },
+  {
+    "id": "rag_010",
+    "query": "How do you handle context switching during work?",
     "expected_route": "rag",
     "must_include_sources": true
   }

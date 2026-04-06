@@ -3,8 +3,12 @@ from pathlib import Path
 
 from evals.response_checks import (
     build_rag_eval_response,
+    citations_reference_known_sources,
+    count_distinct_sources,
+    extract_source_entries,
     has_inline_citations,
     has_sources_section,
+    source_labels_are_clean,
 )
 from rag.retrieval import retrieve_relevant_chunks
 from rag.router import get_routing_decision
@@ -26,6 +30,8 @@ def main() -> None:
     sources_passes = 0
     citations_passes = 0
     non_rag_clean_passes = 0
+    multi_source_passes = 0
+    source_label_passes = 0
     chat_route_passes = 0
     rag_route_passes = 0
     failed_cases = []
@@ -55,12 +61,30 @@ def main() -> None:
         citations_ok = actual_has_citations == expected_has_citations
         citations_passes += int(citations_ok)
 
+        multi_source_ok = True
+        min_distinct_sources = test_case.get("min_distinct_sources")
+        min_source_entries = test_case.get("min_source_entries")
+        if min_distinct_sources is not None:
+            multi_source_ok = count_distinct_sources(chunks) >= min_distinct_sources
+        if multi_source_ok and min_source_entries is not None:
+            multi_source_ok = len(extract_source_entries(response_text)) >= min_source_entries
+        multi_source_passes += int(multi_source_ok)
+
+        source_label_ok = True
+        if test_case.get("check_source_labels"):
+            source_label_ok = (
+                has_sources_section(response_text)
+                and source_labels_are_clean(response_text)
+                and citations_reference_known_sources(response_text)
+            )
+        source_label_passes += int(source_label_ok)
+
         non_rag_clean_ok = True
         if actual_route != "rag":
             non_rag_clean_ok = not actual_has_sources and not actual_has_citations
         non_rag_clean_passes += int(non_rag_clean_ok)
 
-        if not route_ok or not sources_ok or not citations_ok or not non_rag_clean_ok:
+        if not route_ok or not sources_ok or not citations_ok or not multi_source_ok or not source_label_ok or not non_rag_clean_ok:
             failed_checks = []
             if not route_ok:
                 failed_checks.append("route")
@@ -68,6 +92,10 @@ def main() -> None:
                 failed_checks.append("sources_section")
             if not citations_ok:
                 failed_checks.append("inline_citations")
+            if not multi_source_ok:
+                failed_checks.append("multi_source")
+            if not source_label_ok:
+                failed_checks.append("source_labels")
             if not non_rag_clean_ok:
                 failed_checks.append("non_rag_sources")
             failed_cases.append(
@@ -86,6 +114,8 @@ def main() -> None:
             f"(expected={test_case['must_include_sources']}, actual={actual_has_sources}) | "
             f"inline_citations={'PASS' if citations_ok else 'FAIL'} "
             f"(expected={expected_has_citations}, actual={actual_has_citations}) | "
+            f"multi_source={'PASS' if multi_source_ok else 'FAIL'} | "
+            f"source_labels={'PASS' if source_label_ok else 'FAIL'} | "
             f"non_rag_sources={'PASS' if non_rag_clean_ok else 'FAIL'}"
         )
 
@@ -94,10 +124,14 @@ def main() -> None:
     print(f"Passed route checks: {route_passes}/{len(test_cases)}")
     print(f"Passed sources section checks: {sources_passes}/{len(test_cases)}")
     print(f"Passed inline citation checks: {citations_passes}/{len(test_cases)}")
+    print(f"Passed multi-source checks: {multi_source_passes}/{len(test_cases)}")
+    print(f"Passed source label checks: {source_label_passes}/{len(test_cases)}")
     print(f"Passed non-RAG source checks: {non_rag_clean_passes}/{len(test_cases)}")
     print(f"Overall route pass rate: {route_passes / len(test_cases):.1%}")
     print(f"Overall sources section pass rate: {sources_passes / len(test_cases):.1%}")
     print(f"Overall inline citation pass rate: {citations_passes / len(test_cases):.1%}")
+    print(f"Overall multi-source pass rate: {multi_source_passes / len(test_cases):.1%}")
+    print(f"Overall source label pass rate: {source_label_passes / len(test_cases):.1%}")
     print(f"Overall non-RAG source pass rate: {non_rag_clean_passes / len(test_cases):.1%}")
     print(f"Chat route pass count: {chat_route_passes}")
     print(f"RAG route pass count: {rag_route_passes}")
