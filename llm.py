@@ -1,14 +1,17 @@
-from openai import OpenAI
 from config import BASE_URL, API_KEY, MODEL_NAME
 
-client = OpenAI(
-    base_url=BASE_URL,
-    api_key=API_KEY,
-)
+
+def _get_client():
+    from openai import OpenAI
+
+    return OpenAI(
+        base_url=BASE_URL,
+        api_key=API_KEY,
+    )
 
 
 def generate_response(messages):
-    response = client.chat.completions.create(
+    response = _get_client().chat.completions.create(
         model=MODEL_NAME,
         messages=messages,
     )
@@ -16,7 +19,7 @@ def generate_response(messages):
 
 
 def stream_response(messages):
-    stream = client.chat.completions.create(
+    stream = _get_client().chat.completions.create(
         model=MODEL_NAME,
         messages=messages,
         stream=True,
@@ -44,7 +47,7 @@ def generate_session_title(user_message):
         },
     ]
 
-    response = client.chat.completions.create(
+    response = _get_client().chat.completions.create(
         model=MODEL_NAME,
         messages=prompt_messages,
     )

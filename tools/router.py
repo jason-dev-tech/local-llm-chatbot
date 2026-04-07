@@ -12,6 +12,8 @@ SUMMARIZE_TOOL_NAME = "summarize_text"
 REWRITE_TRIGGERS = {
     "rewrite",
     "rephrase",
+    "make this clearer",
+    "improve this sentence",
 }
 REWRITE_TOOL_NAME = "rewrite_text"
 SUMMARIZE_INPUT_PREFIX_PATTERN = re.compile(

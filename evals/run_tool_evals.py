@@ -24,7 +24,44 @@ def main() -> None:
         actual_response = maybe_run_tool(test_case["query"])
 
         route_ok = actual_tool_name == test_case["expected_tool_name"]
-        response_ok = actual_response == test_case["expected_response"]
+        response_checks = []
+
+        if "expected_response" in test_case:
+            response_checks.append(actual_response == test_case.get("expected_response"))
+
+        if "expected_response_contains" in test_case:
+            expected_contains = test_case["expected_response_contains"]
+            response_checks.append(
+                actual_response is not None and all(
+                    value in actual_response for value in expected_contains
+                )
+            )
+
+        if "expected_response_not_contains" in test_case:
+            expected_not_contains = test_case["expected_response_not_contains"]
+            response_checks.append(
+                actual_response is not None and all(
+                    value not in actual_response for value in expected_not_contains
+                )
+            )
+
+        if test_case.get("expected_response_not_equal_input"):
+            response_checks.append(
+                actual_response is not None and actual_response != test_case["tool_input"]
+            )
+
+        if test_case.get("expected_response_not_equal_query"):
+            response_checks.append(
+                actual_response is not None and actual_response != test_case["query"]
+            )
+
+        if test_case.get("expected_response_non_empty"):
+            response_checks.append(
+                actual_response is not None and bool(actual_response.strip())
+            )
+
+        response_ok = all(response_checks) if response_checks else True
+
         route_passes += int(route_ok)
         response_passes += int(response_ok)
 
@@ -33,7 +70,7 @@ def main() -> None:
             f"route={'PASS' if route_ok else 'FAIL'} "
             f"(expected={test_case['expected_tool_name']}, actual={actual_tool_name}, reason={decision.reason}) | "
             f"response={'PASS' if response_ok else 'FAIL'} "
-            f"(expected={test_case['expected_response']!r}, actual={actual_response!r})"
+            f"(expected={test_case.get('expected_response')!r}, actual={actual_response!r})"
         )
 
     print()

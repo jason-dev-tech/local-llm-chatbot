@@ -1,8 +1,5 @@
 """Minimal LangChain wrapper for the local OpenAI-compatible chat model."""
 
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
-
 import config
 
 
@@ -24,8 +21,10 @@ def _extract_text_content(content: object, *, strip: bool = True) -> str:
     return ""
 
 
-def get_langchain_chat_model() -> ChatOpenAI:
+def get_langchain_chat_model():
     """Return a configured LangChain chat model."""
+    from langchain_openai import ChatOpenAI
+
     temperature = getattr(
         config,
         "TEMPERATURE",
@@ -60,6 +59,8 @@ def stream_langchain_response(user_message: str):
 
 def stream_langchain_chat_response(system_prompt: str, user_message: str):
     """Yield plain-text chunks for a system-plus-user chat exchange."""
+    from langchain_core.messages import HumanMessage, SystemMessage
+
     messages = [
         SystemMessage(content=system_prompt),
         HumanMessage(content=user_message),

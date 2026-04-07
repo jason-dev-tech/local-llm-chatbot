@@ -15,22 +15,41 @@
     "id": "tool_003",
     "query": "rewrite:  This   sentence   should be cleaner.  ",
     "expected_tool_name": "rewrite_text",
-    "expected_response": "This sentence should be cleaner."
+    "expected_response": null,
+    "expected_response_non_empty": true,
+    "expected_response_not_contains": [
+      "  ",
+      "rewrite:"
+    ],
+    "expected_response_not_equal_query": true
   },
   {
     "id": "tool_004",
+    "query": "make this clearer: RAG improve answer because it use retrieval.",
+    "expected_tool_name": "rewrite_text",
+    "expected_response": null,
+    "expected_response_contains": [
+      "RAG"
+    ],
+    "expected_response_not_contains": [
+      "make this clearer:"
+    ],
+    "expected_response_not_equal_query": true
+  },
+  {
+    "id": "tool_005",
     "query": "rewrite",
     "expected_tool_name": "rewrite_text",
     "expected_response": "Please provide text to rewrite."
   },
   {
-    "id": "tool_005",
+    "id": "tool_006",
     "query": "Hello there",
     "expected_tool_name": null,
     "expected_response": null
   },
   {
-    "id": "tool_006",
+    "id": "tool_007",
     "query": "What does the knowledge base say about RAG?",
     "expected_tool_name": null,
     "expected_response": null

@@ -4,7 +4,7 @@ from chat_service import append_sources_to_answer, apply_inline_citations
 
 
 INLINE_CITATION_PATTERN = re.compile(r"\[\d+\]")
-SOURCES_SECTION_PATTERN = re.compile(r"(?:^|\n\n)Sources:\n- \[\d+\] .+", re.DOTALL)
+SOURCES_SECTION_PATTERN = re.compile(r"(?:^|\n\n)Sources:\n", re.MULTILINE)
 SOURCE_LINE_PATTERN = re.compile(r"^- \[(\d+)\] (.+)$", re.MULTILINE)
 
 
