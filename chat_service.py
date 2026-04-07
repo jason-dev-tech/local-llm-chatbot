@@ -33,6 +33,10 @@ SESSION_TITLE_PROMPT = (
 )
 CITATION_PATTERN = re.compile(r"\[(\d+)\]")
 NON_STANDARD_SOURCE_CITATION_PATTERN = re.compile(r"\[source\s+(\d+)\]", re.IGNORECASE)
+ATTRIBUTION_BLOCK_PATTERN = re.compile(
+    r"(?:^|\n\n)Sources:\n(?:(?:Sources used|Retrieved context):\n(?:- .*(?:\n|$))+)+",
+    re.IGNORECASE,
+)
 ATTRIBUTION_SECTION_PATTERN = re.compile(
     r"(?:^|\n\n)(?:sources used|retrieved context):\n(?:- .*(?:\n|$))+",
     re.IGNORECASE,
@@ -136,6 +140,7 @@ def append_citation_marker(text, citation_number):
 
 def normalize_answer_body(answer):
     normalized = NON_STANDARD_SOURCE_CITATION_PATTERN.sub(r"[\1]", answer)
+    normalized = ATTRIBUTION_BLOCK_PATTERN.sub("", normalized)
     normalized = ATTRIBUTION_SECTION_PATTERN.sub("", normalized)
     return normalized.strip()
 
@@ -369,16 +374,16 @@ def send_message_and_stream(session_id, user_input):
 
     maybe_update_session_title(session_id, user_input)
 
-    retrieval_summary_result = maybe_run_retrieval_summary(user_input)
-    if retrieval_summary_result is not None:
-        save_message(session_id, "assistant", retrieval_summary_result)
-        yield retrieval_summary_result
-        return
-
     tool_result = maybe_run_tool(user_input)
     if tool_result is not None:
         save_message(session_id, "assistant", tool_result)
         yield tool_result
+        return
+
+    retrieval_summary_result = maybe_run_retrieval_summary(user_input)
+    if retrieval_summary_result is not None:
+        save_message(session_id, "assistant", retrieval_summary_result)
+        yield retrieval_summary_result
         return
 
     llm_tool_result = maybe_run_llm_routed_tool(user_input)
@@ -411,15 +416,15 @@ def send_message(session_id, user_input):
 
     maybe_update_session_title(session_id, user_input)
 
-    retrieval_summary_result = maybe_run_retrieval_summary(user_input)
-    if retrieval_summary_result is not None:
-        save_message(session_id, "assistant", retrieval_summary_result)
-        return retrieval_summary_result
-
     tool_result = maybe_run_tool(user_input)
     if tool_result is not None:
         save_message(session_id, "assistant", tool_result)
         return tool_result
+
+    retrieval_summary_result = maybe_run_retrieval_summary(user_input)
+    if retrieval_summary_result is not None:
+        save_message(session_id, "assistant", retrieval_summary_result)
+        return retrieval_summary_result
 
     llm_tool_result = maybe_run_llm_routed_tool(user_input)
     if llm_tool_result is not None:

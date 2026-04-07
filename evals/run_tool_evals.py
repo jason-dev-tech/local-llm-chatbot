@@ -26,7 +26,20 @@ def main() -> None:
         route_ok = actual_tool_name == test_case["expected_tool_name"]
         response_checks = []
 
-        if "expected_response" in test_case:
+        has_behavior_checks = any(
+            key in test_case
+            for key in (
+                "expected_response_contains",
+                "expected_response_not_contains",
+                "expected_response_not_equal_input",
+                "expected_response_not_equal_query",
+                "expected_response_non_empty",
+            )
+        )
+
+        if "expected_response" in test_case and (
+            test_case["expected_response"] is not None or not has_behavior_checks
+        ):
             response_checks.append(actual_response == test_case.get("expected_response"))
 
         if "expected_response_contains" in test_case:

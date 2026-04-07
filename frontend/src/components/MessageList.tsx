@@ -155,7 +155,6 @@ function MessageList({
 
                 {isAssistant && sourceSections.length > 0 && (
                   <div className="sources-block">
-                    <div className="sources-title">Sources</div>
                     {sourceSections.map((section) => (
                       <div key={section.title}>
                         <div className="sources-title">{section.title}</div>
