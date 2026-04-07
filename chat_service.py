@@ -21,6 +21,7 @@ from llm_langchain import (
 from rag.retrieval import retrieve_relevant_chunks
 from rag.router import get_routing_decision
 from rag.source_metadata import resolve_chunk_source
+from tools.router import maybe_run_tool
 
 SYSTEM_PROMPT = "You are a helpful assistant. Answer clearly and concisely."
 SESSION_TITLE_PROMPT = (
@@ -301,6 +302,12 @@ def send_message_and_stream(session_id, user_input):
 
     maybe_update_session_title(session_id, user_input)
 
+    tool_result = maybe_run_tool(user_input)
+    if tool_result is not None:
+        save_message(session_id, "assistant", tool_result)
+        yield tool_result
+        return
+
     messages, chunks = build_rag_messages(session_id, user_input)
     answer_parts = []
 
@@ -324,6 +331,11 @@ def send_message(session_id, user_input):
     save_message(session_id, "user", user_input)
 
     maybe_update_session_title(session_id, user_input)
+
+    tool_result = maybe_run_tool(user_input)
+    if tool_result is not None:
+        save_message(session_id, "assistant", tool_result)
+        return tool_result
 
     messages, chunks = build_rag_messages(session_id, user_input)
     answer = generate_response(messages)
