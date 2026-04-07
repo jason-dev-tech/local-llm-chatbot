@@ -14,7 +14,7 @@ The current system supports **real-time streaming**, **multi-session chat**, **m
 This system combines three core capabilities in one local-first runtime:
 
 * **RAG** for knowledge-grounded responses over multi-source local documents
-* **Tools** for direct text operations such as summarization and controlled rewriting
+* **Tools** for direct text operations and structured query understanding
 * **Routing** to decide between chat, retrieval, and explicit tool execution
 
 The current implementation is positioned as an **extensible agent foundation**, not a full autonomous agent system. It emphasizes deterministic formatting, isolated execution paths, and evaluation-backed behavior.
@@ -35,6 +35,7 @@ The current implementation is positioned as an **extensible agent foundation**, 
 * Context-aware responses using chat history
 * Automatic **AI-generated session titles**
 * Rule-based and LLM-assisted routing across chat, RAG, and tools
+* Structured query understanding that converts free-form input into downstream routing and retrieval signals
 
 ## 📚 Retrieval-Augmented Generation (RAG)
 
@@ -54,13 +55,28 @@ The current implementation is positioned as an **extensible agent foundation**, 
 * Registry-based tool abstraction for name-based tool resolution
 * `summarize_text` tool for direct text summarization
 * `rewrite_text` tool for controlled rewriting that preserves meaning while improving clarity
+* `extract_entities` tool for structured query analysis with JSON output
 * Deterministic summarize behavior for explicit direct-input requests
 * Controlled rewrite behavior with whitespace normalization, conservative prompting, and fallback to cleaned text
+* Structured extraction output designed for downstream retrieval, routing, and system decisions
 * Tools are isolated from the RAG response pipeline to avoid corrupting citation or attribution formatting
+
+## 🧩 Structured Query Understanding
+
+* `extract_entities` converts free-form user input into structured query signals
+* Output is returned as JSON for system consumption rather than natural-language explanation
+* The extracted structure emphasizes:
+  * `query_type`
+  * `topics`
+  * `technologies`
+  * `files`
+  * `requested_operation`
+* This tool is intended as a preprocessing capability for downstream retrieval and routing decisions
 
 ## 🧭 Routing Strategy
 
 * Direct tool matching for explicit summarize and rewrite requests
+* Direct tool matching for explicit entity-extraction requests
 * Heuristic routing for clear RAG-oriented queries
 * LLM routing fallback for ambiguous cases
 * Explicit tool requests take priority over retrieval-summary fallback
@@ -72,6 +88,7 @@ The current implementation is positioned as an **extensible agent foundation**, 
 * Deterministic chatbot evals for routing, citations, source labels, and multi-source behavior
 * Deterministic routing evals for heuristic, LLM, and effective route outcomes
 * Behavioral tool evals for summarize / rewrite execution
+* JSON-aware tool evals for structured extraction output
 * Frontend validation completed for summarize, rewrite, normal chat, and RAG flows
 
 ## 🗂 Session Management
@@ -137,7 +154,7 @@ Routing Layer
 
 Tool path
    → Tool registry lookup
-   → summarize_text / rewrite_text
+   → summarize_text / rewrite_text / extract_entities
 
 RAG path
    → Embedding → Vector Search (Chroma)
@@ -162,6 +179,7 @@ Retrieval-summary path
 * **Retrieval** is responsible for chunk selection and source metadata propagation
 * **Response formatting** is responsible for inline citations and deterministic attribution output
 * **Routing** decides between explicit tools, RAG, retrieval-summary, and chat
+* **Structured extraction** provides normalized query signals for downstream decisions
 
 ## Design Decisions
 
@@ -169,6 +187,8 @@ Retrieval-summary path
 * Explicit tool intent takes priority over retrieval
 * Attribution formatting is deterministic and normalized
 * Evaluation is split between deterministic and behavioral checks
+* Structured extraction is normalized to ensure stable downstream behavior
+* Lightweight post-processing is used to stabilize category assignment such as technologies vs topics
 * The routing layer is conservative by design and avoids claiming full autonomy
 
 ---
@@ -191,6 +211,7 @@ local-llm-chatbot/
 │   ├── registry.py
 │   ├── summarize.py
 │   ├── rewrite.py
+│   ├── extract_entities.py
 │   └── router.py
 ├── evals/
 │   ├── run_evals.py
@@ -253,6 +274,7 @@ pip install -r requirements.txt
 
 * summarize: Retrieval-Augmented Generation improves grounded answers.
 * rewrite: This   sentence   should be cleaner.
+* extract entities: Compare RAG in LangChain with Chroma and FastAPI using sample.txt and faq.txt
 
 ## Retrieval-Summary Queries
 
@@ -283,7 +305,8 @@ Verified coverage includes:
 
 * Chatbot evaluation for RAG routing, inline citations, source labels, and multi-source behavior
 * Routing evaluation for direct tool routing, heuristic routing, and LLM-assisted fallback
-* Tool evaluation for summarize and rewrite behavior
+* Tool evaluation for summarize, rewrite, and structured extraction behavior
+* JSON-aware validation for valid JSON, expected keys, and expected extracted content
 
 ## Frontend Behavior
 
@@ -309,7 +332,7 @@ Frontend behavior includes streaming responses and sectioned source rendering fo
 
 - Routing layers for chat, RAG, and tools, combining direct tool matching, heuristic decisions, and a minimal LLM router  
 
-- Tool abstraction and registry with `summarize_text` and `rewrite_text` as the initial tool set  
+- Tool abstraction and registry with `summarize_text`, `rewrite_text`, and `extract_entities` as the current tool set  
 
 - Narrow retrieval-summary loop that composes retrieval with tool execution without a full autonomous agent framework  
 
