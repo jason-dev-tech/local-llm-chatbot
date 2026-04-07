@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 import re
 
@@ -33,6 +34,7 @@ EXTRACT_ENTITIES_INPUT_PREFIX_PATTERN = re.compile(
     r"^(?:this text:|the following text:|text:)\s*",
     re.IGNORECASE,
 )
+INFORMATIVE_CHARACTER_PATTERN = re.compile(r"[A-Za-z0-9]")
 
 
 @dataclass(frozen=True)
@@ -58,6 +60,20 @@ def normalize_extract_entities_input(tool_input: str) -> str:
     return EXTRACT_ENTITIES_INPUT_PREFIX_PATTERN.sub("", normalized).strip()
 
 
+def _get_structured_query_type(user_input: str) -> str | None:
+    extract_entities_tool = get_tool(EXTRACT_ENTITIES_TOOL_NAME)
+    if extract_entities_tool is None:
+        return None
+
+    try:
+        payload = json.loads(extract_entities_tool.run(user_input))
+    except (TypeError, json.JSONDecodeError):
+        return None
+
+    query_type = payload.get("query_type")
+    return query_type if isinstance(query_type, str) else None
+
+
 def get_tool_routing_decision(user_input: str) -> ToolRoutingDecision:
     normalized = user_input.strip()
     lowered = normalized.lower()
@@ -69,6 +85,8 @@ def get_tool_routing_decision(user_input: str) -> ToolRoutingDecision:
             reason="empty_input",
             confidence=1.0,
         )
+
+    structured_query_type = _get_structured_query_type(normalized)
 
     for trigger in SUMMARIZE_TRIGGERS:
         if lowered == trigger:
@@ -150,6 +168,14 @@ def get_tool_routing_decision(user_input: str) -> ToolRoutingDecision:
                 confidence=0.95,
             )
 
+    if structured_query_type == "summarization":
+        return ToolRoutingDecision(
+            tool_name=None,
+            tool_input=None,
+            reason="structured_summarization_deferred_to_rag",
+            confidence=0.8,
+        )
+
     return ToolRoutingDecision(
         tool_name=None,
         tool_input=None,
@@ -167,6 +193,11 @@ def maybe_run_tool(user_input: str) -> str | None:
     tool = get_tool(decision.tool_name)
     if tool is None:
         return None
+
+    if decision.tool_name == REWRITE_TOOL_NAME and (
+        not decision.tool_input or not INFORMATIVE_CHARACTER_PATTERN.search(decision.tool_input)
+    ):
+        return "Please provide text to rewrite."
 
     if not decision.tool_input:
         if decision.tool_name == SUMMARIZE_TOOL_NAME:

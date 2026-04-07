@@ -278,11 +278,28 @@ def maybe_run_retrieval_summary(user_input):
     if not retrieved_text:
         return "I couldn't find relevant knowledge to summarize."
 
-    summarize_tool = get_tool(SUMMARIZE_TOOL_NAME)
-    if summarize_tool is None:
-        return None
+    summary_prompt = (
+        "Summarize the retrieved knowledge base content for the user's request.\n"
+        "Requirements:\n"
+        "- Keep the summary concise and natural.\n"
+        "- Preserve the original meaning.\n"
+        "- Stay strictly grounded in the retrieved content.\n"
+        "- Do not generalize beyond what is explicitly supported.\n"
+        "- Do not copy raw Q&A blocks or document structure.\n"
+        "- Do not add new facts.\n"
+        "- Return only the summary.\n\n"
+        f"User request:\n{user_input}\n\n"
+        f"Retrieved content:\n{retrieved_text}"
+    )
 
-    summary = summarize_tool.run(retrieved_text)
+    try:
+        summary = generate_langchain_response(summary_prompt).strip()
+    except Exception:
+        summary = ""
+
+    if not summary:
+        return "I couldn't produce a summary from the retrieved knowledge."
+
     return append_sources_to_answer(summary, chunks)
 
 
