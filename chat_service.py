@@ -22,6 +22,7 @@ from rag.retrieval import retrieve_relevant_chunks
 from rag.router import get_routing_decision
 from rag.source_metadata import resolve_chunk_source
 from tools.router import maybe_run_tool
+from tools.summarize import summarize_text_tool
 
 SYSTEM_PROMPT = "You are a helpful assistant. Answer clearly and concisely."
 SESSION_TITLE_PROMPT = (
@@ -219,6 +220,39 @@ def build_rag_messages(session_id, user_input):
     return messages, chunks
 
 
+def maybe_run_retrieval_summary(user_input):
+    normalized = user_input.strip().lower()
+    if not normalized.startswith("summarize") and not normalized.startswith("summary"):
+        return None
+
+    explicit_text_markers = (
+        "this text:",
+        "the following text:",
+        "text:",
+    )
+    if any(marker in normalized for marker in explicit_text_markers):
+        return None
+
+    decision = get_routing_decision(user_input)
+    if decision.route != "rag":
+        return None
+
+    chunks = retrieve_relevant_chunks(user_input, top_k=3)
+    if not chunks:
+        return "I couldn't find relevant knowledge to summarize."
+
+    retrieved_text = "\n\n".join(
+        chunk.get("content", "").strip()
+        for chunk in chunks
+        if chunk.get("content", "").strip()
+    )
+    if not retrieved_text:
+        return "I couldn't find relevant knowledge to summarize."
+
+    summary = summarize_text_tool.run(retrieved_text)
+    return append_sources_to_answer(summary, chunks)
+
+
 def extract_source_list(chunks):
     source_map = build_source_map(chunks)
     source_metadata_map = {}
@@ -302,6 +336,12 @@ def send_message_and_stream(session_id, user_input):
 
     maybe_update_session_title(session_id, user_input)
 
+    retrieval_summary_result = maybe_run_retrieval_summary(user_input)
+    if retrieval_summary_result is not None:
+        save_message(session_id, "assistant", retrieval_summary_result)
+        yield retrieval_summary_result
+        return
+
     tool_result = maybe_run_tool(user_input)
     if tool_result is not None:
         save_message(session_id, "assistant", tool_result)
@@ -331,6 +371,11 @@ def send_message(session_id, user_input):
     save_message(session_id, "user", user_input)
 
     maybe_update_session_title(session_id, user_input)
+
+    retrieval_summary_result = maybe_run_retrieval_summary(user_input)
+    if retrieval_summary_result is not None:
+        save_message(session_id, "assistant", retrieval_summary_result)
+        return retrieval_summary_result
 
     tool_result = maybe_run_tool(user_input)
     if tool_result is not None:
