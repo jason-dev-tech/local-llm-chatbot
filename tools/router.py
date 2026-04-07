@@ -9,7 +9,16 @@ SUMMARIZE_TRIGGERS = {
     "summary",
 }
 SUMMARIZE_TOOL_NAME = "summarize_text"
+REWRITE_TRIGGERS = {
+    "rewrite",
+    "rephrase",
+}
+REWRITE_TOOL_NAME = "rewrite_text"
 SUMMARIZE_INPUT_PREFIX_PATTERN = re.compile(
+    r"^(?:this text:|the following text:|text:)\s*",
+    re.IGNORECASE,
+)
+REWRITE_INPUT_PREFIX_PATTERN = re.compile(
     r"^(?:this text:|the following text:|text:)\s*",
     re.IGNORECASE,
 )
@@ -26,6 +35,11 @@ class ToolRoutingDecision:
 def normalize_summarize_input(tool_input: str) -> str:
     normalized = tool_input.strip()
     return SUMMARIZE_INPUT_PREFIX_PATTERN.sub("", normalized).strip()
+
+
+def normalize_rewrite_input(tool_input: str) -> str:
+    normalized = tool_input.strip()
+    return REWRITE_INPUT_PREFIX_PATTERN.sub("", normalized).strip()
 
 
 def get_tool_routing_decision(user_input: str) -> ToolRoutingDecision:
@@ -71,6 +85,37 @@ def get_tool_routing_decision(user_input: str) -> ToolRoutingDecision:
                 confidence=0.95,
             )
 
+    for trigger in REWRITE_TRIGGERS:
+        if lowered == trigger:
+            return ToolRoutingDecision(
+                tool_name=REWRITE_TOOL_NAME,
+                tool_input="",
+                reason="rewrite_exact_match",
+                confidence=0.95,
+            )
+
+        if lowered.startswith(f"{trigger} "):
+            remainder = normalized[len(trigger):].strip()
+            normalized_remainder = normalize_rewrite_input(remainder)
+            if remainder == normalized_remainder:
+                continue
+
+            return ToolRoutingDecision(
+                tool_name=REWRITE_TOOL_NAME,
+                tool_input=normalized_remainder,
+                reason="rewrite_prefix_match",
+                confidence=0.95,
+            )
+
+        marker = f"{trigger}:"
+        if lowered.startswith(marker):
+            return ToolRoutingDecision(
+                tool_name=REWRITE_TOOL_NAME,
+                tool_input=normalize_rewrite_input(normalized[len(marker):]),
+                reason="rewrite_prefix_match",
+                confidence=0.95,
+            )
+
     return ToolRoutingDecision(
         tool_name=None,
         tool_input=None,
@@ -81,7 +126,7 @@ def get_tool_routing_decision(user_input: str) -> ToolRoutingDecision:
 
 def maybe_run_tool(user_input: str) -> str | None:
     decision = get_tool_routing_decision(user_input)
-    if decision.tool_name != SUMMARIZE_TOOL_NAME:
+    if decision.tool_name not in {SUMMARIZE_TOOL_NAME, REWRITE_TOOL_NAME}:
         return None
 
     tool = get_tool(decision.tool_name)
@@ -89,6 +134,10 @@ def maybe_run_tool(user_input: str) -> str | None:
         return None
 
     if not decision.tool_input:
-        return "Please provide text to summarize."
+        if decision.tool_name == SUMMARIZE_TOOL_NAME:
+            return "Please provide text to summarize."
+        if decision.tool_name == REWRITE_TOOL_NAME:
+            return "Please provide text to rewrite."
+        return None
 
     return tool.run(decision.tool_input)
