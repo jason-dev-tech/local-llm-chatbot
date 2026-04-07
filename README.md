@@ -1,8 +1,8 @@
 # 🤖 Local-First AI Chatbot with RAG, Citations, Tools, and Routing
 
-A local-first **full-stack AI application** built with FastAPI and React, powered by a local LLM and extended with **multi-source Retrieval-Augmented Generation (RAG)**, deterministic attribution, and a lightweight agent foundation for tool-aware routing.
+A local-first **full-stack AI application** built with FastAPI and React, powered by a local LLM and extended with **multi-source Retrieval-Augmented Generation (RAG)**, deterministic attribution, structured query understanding, and a lightweight agent foundation for tool-aware routing.
 
-The current system supports **real-time streaming**, **multi-session chat**, **multi-source retrieval**, **inline citations**, **registry-based tools**, and **conservative routing** across chat, RAG, direct tools, and retrieval-summary flows.
+The current system supports **real-time streaming**, **multi-session chat**, **multi-source retrieval**, **inline citations**, **registry-based tools**, **metadata-aware file filtering**, and **conservative routing** across chat, RAG, direct tools, and retrieval-summary flows.
 
 > This repository is maintained as a local-first engineering system.
 > It is **not an open-source project**. All rights are reserved.
@@ -36,6 +36,7 @@ The current implementation is positioned as an **extensible agent foundation**, 
 * Automatic **AI-generated session titles**
 * Rule-based and LLM-assisted routing across chat, RAG, and tools
 * Structured query understanding that converts free-form input into downstream routing and retrieval signals
+* File-aware retrieval that uses explicit file references to apply metadata-based filtering and improve retrieval precision
 
 ## 📚 Retrieval-Augmented Generation (RAG)
 
@@ -43,12 +44,14 @@ The current implementation is positioned as an **extensible agent foundation**, 
 * Query embedding + similarity search (Top-K retrieval)
 * Dynamic **context injection into prompts**
 * Multi-source knowledge file support for retrieval and attribution
+* Metadata-aware retrieval filtering when explicit file references are present in the query
 * Backend-controlled **inline citations** for RAG answers
 * Stable numbered citations aligned with the final attribution block
 * Normalized source metadata and cleaner source labels for readability
 * Dual-section attribution with **Sources used** and **Retrieved context**
 * **Deterministic source attribution** and citation post-processing
 * **Intent-aware routing** for knowledge-grounded requests
+* If a query contains explicit file references, retrieval is restricted to those files for more precise and controlled answers
 
 ## 🛠 Tooling Layer
 
@@ -59,6 +62,7 @@ The current implementation is positioned as an **extensible agent foundation**, 
 * Deterministic summarize behavior for explicit direct-input requests
 * Controlled rewrite behavior with whitespace normalization, conservative prompting, and fallback to cleaned text
 * Structured extraction output designed for downstream retrieval, routing, and system decisions
+* `extract_entities` is also used internally for query analysis before retrieval when explicit file signals are present
 * Tools are isolated from the RAG response pipeline to avoid corrupting citation or attribution formatting
 
 ## 🧩 Structured Query Understanding
@@ -71,7 +75,7 @@ The current implementation is positioned as an **extensible agent foundation**, 
   * `technologies`
   * `files`
   * `requested_operation`
-* This tool is intended as a preprocessing capability for downstream retrieval and routing decisions
+* This tool is used both as an explicit system capability and as a preprocessing step for retrieval and routing decisions
 
 ## 🧭 Routing Strategy
 
@@ -143,6 +147,9 @@ The current milestone is a **production-style local AI system architecture** wit
 ```
 User Query
    ↓
+Query Analysis
+   → extract_entities for structured query signals when explicit file references are present
+   ↓
 Routing Layer
    → Direct tool matching
    → Heuristic RAG router
@@ -189,6 +196,8 @@ Retrieval-summary path
 * Evaluation is split between deterministic and behavioral checks
 * Structured extraction is normalized to ensure stable downstream behavior
 * Lightweight post-processing is used to stabilize category assignment such as technologies vs topics
+* Lightweight query analysis is applied before retrieval when explicit signals such as filenames are present
+* Filtering is only applied when confident signals are detected to avoid degrading recall
 * The routing layer is conservative by design and avoids claiming full autonomy
 
 ---
