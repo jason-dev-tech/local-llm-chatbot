@@ -21,6 +21,7 @@ from llm_langchain import (
 from rag.retrieval import retrieve_relevant_chunks
 from rag.router import get_routing_decision
 from rag.source_metadata import resolve_chunk_source
+from routing.llm_router import get_llm_routing_decision
 from tools.router import maybe_run_tool
 from tools.summarize import summarize_text_tool
 
@@ -186,7 +187,7 @@ def apply_inline_citations(answer, chunks):
 
 def build_rag_messages(session_id, user_input):
     history = get_recent_messages(session_id, limit=10)
-    decision = get_routing_decision(user_input)
+    decision = get_effective_routing_decision(user_input)
     print(
         f"Routing decision: route={decision.route} "
         f"reason={decision.reason} confidence={decision.confidence}"
@@ -220,6 +221,18 @@ def build_rag_messages(session_id, user_input):
     return messages, chunks
 
 
+def get_effective_routing_decision(user_input):
+    heuristic_decision = get_routing_decision(user_input)
+    if heuristic_decision.route == "rag":
+        return heuristic_decision
+
+    llm_decision = get_llm_routing_decision(user_input)
+    if llm_decision.route == "rag":
+        return llm_decision
+
+    return heuristic_decision
+
+
 def maybe_run_retrieval_summary(user_input):
     normalized = user_input.strip().lower()
     if not normalized.startswith("summarize") and not normalized.startswith("summary"):
@@ -251,6 +264,17 @@ def maybe_run_retrieval_summary(user_input):
 
     summary = summarize_text_tool.run(retrieved_text)
     return append_sources_to_answer(summary, chunks)
+
+
+def maybe_run_llm_routed_tool(user_input):
+    llm_decision = get_llm_routing_decision(user_input)
+    if llm_decision.route != "tool:summarize_text":
+        return None
+
+    if not llm_decision.tool_input:
+        return "Please provide text to summarize."
+
+    return summarize_text_tool.run(llm_decision.tool_input)
 
 
 def extract_source_list(chunks):
@@ -348,6 +372,12 @@ def send_message_and_stream(session_id, user_input):
         yield tool_result
         return
 
+    llm_tool_result = maybe_run_llm_routed_tool(user_input)
+    if llm_tool_result is not None:
+        save_message(session_id, "assistant", llm_tool_result)
+        yield llm_tool_result
+        return
+
     messages, chunks = build_rag_messages(session_id, user_input)
     answer_parts = []
 
@@ -381,6 +411,11 @@ def send_message(session_id, user_input):
     if tool_result is not None:
         save_message(session_id, "assistant", tool_result)
         return tool_result
+
+    llm_tool_result = maybe_run_llm_routed_tool(user_input)
+    if llm_tool_result is not None:
+        save_message(session_id, "assistant", llm_tool_result)
+        return llm_tool_result
 
     messages, chunks = build_rag_messages(session_id, user_input)
     answer = generate_response(messages)
