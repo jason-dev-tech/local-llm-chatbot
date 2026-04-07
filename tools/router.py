@@ -16,11 +16,20 @@ REWRITE_TRIGGERS = {
     "improve this sentence",
 }
 REWRITE_TOOL_NAME = "rewrite_text"
+EXTRACT_ENTITIES_TRIGGERS = {
+    "extract entities",
+    "extract entity",
+}
+EXTRACT_ENTITIES_TOOL_NAME = "extract_entities"
 SUMMARIZE_INPUT_PREFIX_PATTERN = re.compile(
     r"^(?:this text:|the following text:|text:)\s*",
     re.IGNORECASE,
 )
 REWRITE_INPUT_PREFIX_PATTERN = re.compile(
+    r"^(?:this text:|the following text:|text:)\s*",
+    re.IGNORECASE,
+)
+EXTRACT_ENTITIES_INPUT_PREFIX_PATTERN = re.compile(
     r"^(?:this text:|the following text:|text:)\s*",
     re.IGNORECASE,
 )
@@ -42,6 +51,11 @@ def normalize_summarize_input(tool_input: str) -> str:
 def normalize_rewrite_input(tool_input: str) -> str:
     normalized = tool_input.strip()
     return REWRITE_INPUT_PREFIX_PATTERN.sub("", normalized).strip()
+
+
+def normalize_extract_entities_input(tool_input: str) -> str:
+    normalized = tool_input.strip()
+    return EXTRACT_ENTITIES_INPUT_PREFIX_PATTERN.sub("", normalized).strip()
 
 
 def get_tool_routing_decision(user_input: str) -> ToolRoutingDecision:
@@ -118,6 +132,24 @@ def get_tool_routing_decision(user_input: str) -> ToolRoutingDecision:
                 confidence=0.95,
             )
 
+    for trigger in EXTRACT_ENTITIES_TRIGGERS:
+        if lowered == trigger:
+            return ToolRoutingDecision(
+                tool_name=EXTRACT_ENTITIES_TOOL_NAME,
+                tool_input="",
+                reason="extract_entities_exact_match",
+                confidence=0.95,
+            )
+
+        marker = f"{trigger}:"
+        if lowered.startswith(marker):
+            return ToolRoutingDecision(
+                tool_name=EXTRACT_ENTITIES_TOOL_NAME,
+                tool_input=normalize_extract_entities_input(normalized[len(marker):]),
+                reason="extract_entities_prefix_match",
+                confidence=0.95,
+            )
+
     return ToolRoutingDecision(
         tool_name=None,
         tool_input=None,
@@ -129,7 +161,8 @@ def get_tool_routing_decision(user_input: str) -> ToolRoutingDecision:
 def maybe_run_tool(user_input: str) -> str | None:
     decision = get_tool_routing_decision(user_input)
     if decision.tool_name not in {SUMMARIZE_TOOL_NAME, REWRITE_TOOL_NAME}:
-        return None
+        if decision.tool_name != EXTRACT_ENTITIES_TOOL_NAME:
+            return None
 
     tool = get_tool(decision.tool_name)
     if tool is None:
@@ -140,6 +173,8 @@ def maybe_run_tool(user_input: str) -> str | None:
             return "Please provide text to summarize."
         if decision.tool_name == REWRITE_TOOL_NAME:
             return "Please provide text to rewrite."
+        if decision.tool_name == EXTRACT_ENTITIES_TOOL_NAME:
+            return "Please provide text to extract entities from."
         return None
 
     return tool.run(decision.tool_input)

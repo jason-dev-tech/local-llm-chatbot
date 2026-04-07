@@ -44,12 +44,56 @@
   },
   {
     "id": "tool_006",
+    "query": "extract entities: Compare RAG in LangChain with Chroma and FastAPI using sample.txt and faq.txt",
+    "expected_tool_name": "extract_entities",
+    "expected_response": null,
+    "expected_response_valid_json": true,
+    "expected_json_keys": [
+      "query_type",
+      "topics",
+      "technologies",
+      "files",
+      "constraints",
+      "requested_operation"
+    ],
+    "expected_json_contains": {
+      "technologies": ["RAG", "LangChain", "Chroma", "FastAPI"],
+      "files": ["sample.txt", "faq.txt"]
+    }
+  },
+  {
+    "id": "tool_007",
+    "query": "extract entity: summarize faq.txt about citations",
+    "expected_tool_name": "extract_entities",
+    "expected_response": null,
+    "expected_response_valid_json": true,
+    "expected_json_keys": [
+      "query_type",
+      "topics",
+      "technologies",
+      "files",
+      "constraints",
+      "requested_operation"
+    ],
+    "expected_json_contains": {
+      "files": ["faq.txt"],
+      "topics": ["citations"]
+    }
+  },
+  {
+    "id": "tool_008",
+    "query": "extract entities:",
+    "expected_tool_name": "extract_entities",
+    "expected_response": "Please provide text to extract entities from."
+  },
+  {
+    "id": "tool_009",
     "query": "Hello there",
     "expected_tool_name": null,
     "expected_response": null
   },
   {
-    "id": "tool_007",
+    "id": "tool_010",
     "query": "What does the knowledge base say about RAG?",
     "expected_tool_name": null,
     "expected_response": null

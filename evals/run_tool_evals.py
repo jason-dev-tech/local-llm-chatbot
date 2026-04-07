@@ -34,6 +34,9 @@ def main() -> None:
                 "expected_response_not_equal_input",
                 "expected_response_not_equal_query",
                 "expected_response_non_empty",
+                "expected_response_valid_json",
+                "expected_json_keys",
+                "expected_json_contains",
             )
         )
 
@@ -72,6 +75,43 @@ def main() -> None:
             response_checks.append(
                 actual_response is not None and bool(actual_response.strip())
             )
+
+        if test_case.get("expected_response_valid_json"):
+            try:
+                parsed = json.loads(actual_response) if actual_response is not None else None
+            except (TypeError, json.JSONDecodeError):
+                parsed = None
+            response_checks.append(isinstance(parsed, dict))
+        else:
+            parsed = None
+
+        if "expected_json_keys" in test_case:
+            if parsed is None and actual_response is not None:
+                try:
+                    parsed = json.loads(actual_response)
+                except (TypeError, json.JSONDecodeError):
+                    parsed = None
+            response_checks.append(
+                isinstance(parsed, dict)
+                and all(key in parsed for key in test_case["expected_json_keys"])
+            )
+
+        if "expected_json_contains" in test_case:
+            if parsed is None and actual_response is not None:
+                try:
+                    parsed = json.loads(actual_response)
+                except (TypeError, json.JSONDecodeError):
+                    parsed = None
+            contains_checks = []
+            if isinstance(parsed, dict):
+                for key, expected_values in test_case["expected_json_contains"].items():
+                    value = parsed.get(key)
+                    contains_checks.append(
+                        isinstance(value, list) and all(expected in value for expected in expected_values)
+                    )
+            else:
+                contains_checks.append(False)
+            response_checks.append(all(contains_checks))
 
         response_ok = all(response_checks) if response_checks else True
 
