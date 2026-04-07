@@ -1,0 +1,38 @@
+[
+  {
+    "id": "tool_001",
+    "query": "summarize: Retrieval-Augmented Generation improves grounded answers.",
+    "expected_tool_name": "summarize_text",
+    "expected_response": "Retrieval-Augmented Generation improves grounded answers."
+  },
+  {
+    "id": "tool_002",
+    "query": "summarize",
+    "expected_tool_name": "summarize_text",
+    "expected_response": "Please provide text to summarize."
+  },
+  {
+    "id": "tool_003",
+    "query": "rewrite:  This   sentence   should be cleaner.  ",
+    "expected_tool_name": "rewrite_text",
+    "expected_response": "This sentence should be cleaner."
+  },
+  {
+    "id": "tool_004",
+    "query": "rewrite",
+    "expected_tool_name": "rewrite_text",
+    "expected_response": "Please provide text to rewrite."
+  },
+  {
+    "id": "tool_005",
+    "query": "Hello there",
+    "expected_tool_name": null,
+    "expected_response": null
+  },
+  {
+    "id": "tool_006",
+    "query": "What does the knowledge base say about RAG?",
+    "expected_tool_name": null,
+    "expected_response": null
+  }
+]
