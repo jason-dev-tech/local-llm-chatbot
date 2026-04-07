@@ -1,15 +1,27 @@
-# 🤖 Local-First AI Chatbot with RAG, Tools, and Routing
+# 🤖 Local-First AI Chatbot with RAG, Citations, Tools, and Routing
 
-A local-first **full-stack AI chatbot** built with FastAPI and React, powered by a local LLM and extended with **multi-source Retrieval-Augmented Generation (RAG)**, backend-controlled citations, and a lightweight tool-and-routing foundation.
+A local-first **full-stack AI application** built with FastAPI and React, powered by a local LLM and extended with **multi-source Retrieval-Augmented Generation (RAG)**, deterministic attribution, and a lightweight agent foundation for tool-aware routing.
 
-The current system supports **real-time streaming**, **multi-session chat**, **multi-source retrieval**, **deterministic attribution**, and **conservative agent-style routing** across chat, RAG, and tools.
+The current system supports **real-time streaming**, **multi-session chat**, **multi-source retrieval**, **inline citations**, **registry-based tools**, and **conservative routing** across chat, RAG, direct tools, and retrieval-summary flows.
 
-> ⚠️ This project is for portfolio and demonstration purposes only.
+> This repository is maintained as a local-first engineering system.
 > It is **not an open-source project**. All rights are reserved.
 
 ---
 
-# 🚀 Key Features
+# 🚀 System Overview
+
+This system combines three core capabilities in one local-first runtime:
+
+* **RAG** for knowledge-grounded responses over multi-source local documents
+* **Tools** for direct text operations such as summarization and controlled rewriting
+* **Routing** to decide between chat, retrieval, and explicit tool execution
+
+The current implementation is positioned as an **extensible agent foundation**, not a full autonomous agent system. It emphasizes deterministic formatting, isolated execution paths, and evaluation-backed behavior.
+
+---
+
+# 🚀 Core Capabilities
 
 ## 💬 Chat Experience
 
@@ -37,23 +49,30 @@ The current system supports **real-time streaming**, **multi-session chat**, **m
 * **Deterministic source attribution** and citation post-processing
 * **Intent-aware routing** for knowledge-grounded requests
 
-## 🛠 Tooling Foundation
+## 🛠 Tooling Layer
 
-* Minimal tool abstraction with a registry-based lookup layer
+* Registry-based tool abstraction for name-based tool resolution
 * `summarize_text` tool for direct text summarization
-* `rewrite_text` tool for direct text rewriting / cleanup
-* Rule-based routing for explicit tool commands
-* LLM-based router for ambiguous chat / RAG / tool selection
-* Minimal retrieval-summary loop:
-  summarize intent → retrieve knowledge → summarize retrieved text
+* `rewrite_text` tool for controlled rewriting that preserves meaning while improving clarity
+* Deterministic summarize behavior for explicit direct-input requests
+* Controlled rewrite behavior with whitespace normalization, conservative prompting, and fallback to cleaned text
+* Tools are isolated from the RAG response pipeline to avoid corrupting citation or attribution formatting
+
+## 🧭 Routing Strategy
+
+* Direct tool matching for explicit summarize and rewrite requests
+* Heuristic routing for clear RAG-oriented queries
+* LLM routing fallback for ambiguous cases
+* Explicit tool requests take priority over retrieval-summary fallback
+* Retrieval-summary path remains available for summarize-over-knowledge requests
+* Tool priority ordering prevents explicit tool intent from falling into RAG formatting flows
 
 ## 🧪 Evaluation Coverage
 
-* Deterministic evals for RAG routing behavior
-* Citation and Sources section checks
-* Source label and multi-source retrieval checks
-* Separate routing evals for heuristic, LLM, and effective route outcomes
-* Tool evals for summarize / rewrite routing and execution
+* Deterministic chatbot evals for routing, citations, source labels, and multi-source behavior
+* Deterministic routing evals for heuristic, LLM, and effective route outcomes
+* Behavioral tool evals for summarize / rewrite execution
+* Frontend validation completed for summarize, rewrite, normal chat, and RAG flows
 
 ## 🗂 Session Management
 
@@ -71,7 +90,7 @@ The current system supports **real-time streaming**, **multi-session chat**, **m
 
 ## Current Status
 
-The project currently represents a solid **agent foundation milestone**: local chat, multi-source RAG, deterministic attribution, a small tool registry, rule-based and LLM-assisted routing, and a narrow multi-step retrieval-summary path. The architecture is intentionally simple, but it is structured to extend cleanly into broader agent-style workflows.
+The current milestone is a **production-style local AI system architecture** with multi-source RAG, deterministic attribution, registry-based tools, explicit tool priority, rule-based and LLM-assisted routing, and a narrow retrieval-summary composition path. The design is intentionally controlled and modular, with clear seams for extending the system without turning it into an uncontrolled agent loop.
 
 ---
 
@@ -108,38 +127,49 @@ The project currently represents a solid **agent foundation milestone**: local c
 User Query
    ↓
 Routing Layer
-   → Rule-based tool router
+   → Direct tool matching
    → Heuristic RAG router
    → LLM router fallback
    ↓
-(1) Chat path
-   → Direct LLM response
+   → Tool path
+   → RAG path
+   → Chat path
 
-(2) RAG path
+Tool path
+   → Tool registry lookup
+   → summarize_text / rewrite_text
+
+RAG path
    → Embedding → Vector Search (Chroma)
    → Retrieve Top-K Chunks
    → Context Injection
    → LLM Generation
    → Inline Citation + Attribution Post-processing
 
-(3) Tool path
-   → Tool registry lookup
-   → summarize_text / rewrite_text
+Chat path
+   → Direct LLM response
 
-(4) Retrieval-summary path
+Retrieval-summary path
    → Retrieve relevant chunks
    → Build text from retrieved context
    → Run summarize_text
    → Append attribution
 ```
 
-## Core Workflow Notes
+## Separation of Concerns
 
-* RAG answers use backend-controlled inline citations such as `[1]` and `[2]`
-* Final attribution is split into **Sources used** and **Retrieved context**
-* Source numbering remains stable across inline citations and the final attribution block
-* Source metadata is normalized during ingestion / retrieval to improve attribution quality
-* Explicit tool commands are handled conservatively before ambiguous LLM-routed cases
+* **Tool execution** is isolated behind a registry-based lookup layer
+* **Retrieval** is responsible for chunk selection and source metadata propagation
+* **Response formatting** is responsible for inline citations and deterministic attribution output
+* **Routing** decides between explicit tools, RAG, retrieval-summary, and chat
+
+## Design Decisions
+
+* Tools are isolated from the RAG pipeline to prevent formatting corruption
+* Explicit tool intent takes priority over retrieval
+* Attribution formatting is deterministic and normalized
+* Evaluation is split between deterministic and behavioral checks
+* The routing layer is conservative by design and avoids claiming full autonomy
 
 ---
 
@@ -243,28 +273,51 @@ python3 evals/run_tool_evals.py
 
 These scripts validate routing, multi-source retrieval behavior, citation formatting, source labeling, and direct tool execution without relying on model-graded evaluation.
 
+Current verified milestone:
+
+* `tool evals`: **100%**
+* `routing evals`: **100%**
+* `chatbot evals`: **100%**
+
+Verified coverage includes:
+
+* Chatbot evaluation for RAG routing, inline citations, source labels, and multi-source behavior
+* Routing evaluation for direct tool routing, heuristic routing, and LLM-assisted fallback
+* Tool evaluation for summarize and rewrite behavior
+
+## Frontend Behavior
+
+Verified frontend flows:
+
+* summarize tool requests
+* rewrite tool requests
+* normal chat queries
+* RAG queries with source rendering
+
+Frontend behavior includes streaming responses and sectioned source rendering for deterministic attribution blocks.
+
 ---
 
 ## 🔥 Highlights
 
-- Built a **local-first AI chatbot system** integrating local LLM usage, vector retrieval, deterministic attribution, and a React/FastAPI stack  
+- Local-first AI system architecture integrating local LLM usage, vector retrieval, deterministic attribution, and a React/FastAPI stack  
 
-- Implemented an **end-to-end multi-source RAG pipeline**:
+- End-to-end multi-source RAG pipeline:
   ingestion → embedding → retrieval → generation → attribution  
 
-- Added **backend-controlled inline citations** with stable numbering and dual-section attribution for transparency  
+- Backend-controlled inline citations with stable numbering and dual-section attribution  
 
-- Designed **routing layers for chat, RAG, and tools**, combining heuristic decisions, explicit command handling, and a minimal LLM router  
+- Routing layers for chat, RAG, and tools, combining direct tool matching, heuristic decisions, and a minimal LLM router  
 
-- Introduced a **tool abstraction and registry** with summarize and rewrite tools as the first agent-oriented capabilities  
+- Tool abstraction and registry with `summarize_text` and `rewrite_text` as the initial tool set  
 
-- Added a narrow **retrieval-summary loop**, showing how tool execution can be composed with retrieval without a full autonomous agent framework  
+- Narrow retrieval-summary loop that composes retrieval with tool execution without a full autonomous agent framework  
 
-- Built **deterministic evaluation coverage** for routing, citations, source labels, multi-source retrieval, and tool behavior  
+- Deterministic and behavior-based evaluation coverage for routing, citations, source labels, multi-source retrieval, and tool behavior  
 
-- Built **real-time streaming chat** with persistent multi-session history in SQLite  
+- Verified frontend behavior for summarize, rewrite, chat, and RAG flows  
 
-- Focused on **system design, evaluation discipline, and extensibility**, not just isolated prompt calls  
+- System design emphasizes isolation, deterministic formatting, routing control, and extensibility  
 
 ---
 
