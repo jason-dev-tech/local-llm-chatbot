@@ -1,0 +1,42 @@
+[
+  {
+    "id": "route_chat_001",
+    "query": "Hello",
+    "expected_route": "chat"
+  },
+  {
+    "id": "route_chat_002",
+    "query": "Tell me a joke",
+    "expected_route": "chat"
+  },
+  {
+    "id": "route_rag_001",
+    "query": "What is Retrieval-Augmented Generation?",
+    "expected_route": "rag"
+  },
+  {
+    "id": "route_rag_002",
+    "query": "Summarize what the knowledge base says about RAG",
+    "expected_route": "rag"
+  },
+  {
+    "id": "route_rag_003",
+    "query": "Can you explain semantic search in this knowledge base?",
+    "expected_route": "rag"
+  },
+  {
+    "id": "route_tool_001",
+    "query": "summarize this text: Retrieval-Augmented Generation combines retrieval with generation.",
+    "expected_route": "tool:summarize_text"
+  },
+  {
+    "id": "route_tool_002",
+    "query": "summary: RAG helps ground answers in retrieved context.",
+    "expected_route": "tool:summarize_text"
+  },
+  {
+    "id": "route_tool_003",
+    "query": "summarize",
+    "expected_route": "tool:summarize_text"
+  }
+]

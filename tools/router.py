@@ -49,9 +49,14 @@ def get_tool_routing_decision(user_input: str) -> ToolRoutingDecision:
             )
 
         if lowered.startswith(f"{trigger} "):
+            remainder = normalized[len(trigger):].strip()
+            normalized_remainder = normalize_summarize_input(remainder)
+            if remainder == normalized_remainder:
+                continue
+
             return ToolRoutingDecision(
                 tool_name=summarize_text_tool.name,
-                tool_input=normalize_summarize_input(normalized[len(trigger):]),
+                tool_input=normalized_remainder,
                 reason="summarize_prefix_match",
                 confidence=0.95,
             )
