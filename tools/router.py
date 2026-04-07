@@ -1,13 +1,14 @@
 from dataclasses import dataclass
 import re
 
-from tools.summarize import summarize_text_tool
+from tools.registry import get_tool
 
 
 SUMMARIZE_TRIGGERS = {
     "summarize",
     "summary",
 }
+SUMMARIZE_TOOL_NAME = "summarize_text"
 SUMMARIZE_INPUT_PREFIX_PATTERN = re.compile(
     r"^(?:this text:|the following text:|text:)\s*",
     re.IGNORECASE,
@@ -42,7 +43,7 @@ def get_tool_routing_decision(user_input: str) -> ToolRoutingDecision:
     for trigger in SUMMARIZE_TRIGGERS:
         if lowered == trigger:
             return ToolRoutingDecision(
-                tool_name=summarize_text_tool.name,
+                tool_name=SUMMARIZE_TOOL_NAME,
                 tool_input="",
                 reason="summarize_exact_match",
                 confidence=0.95,
@@ -55,7 +56,7 @@ def get_tool_routing_decision(user_input: str) -> ToolRoutingDecision:
                 continue
 
             return ToolRoutingDecision(
-                tool_name=summarize_text_tool.name,
+                tool_name=SUMMARIZE_TOOL_NAME,
                 tool_input=normalized_remainder,
                 reason="summarize_prefix_match",
                 confidence=0.95,
@@ -64,7 +65,7 @@ def get_tool_routing_decision(user_input: str) -> ToolRoutingDecision:
         marker = f"{trigger}:"
         if lowered.startswith(marker):
             return ToolRoutingDecision(
-                tool_name=summarize_text_tool.name,
+                tool_name=SUMMARIZE_TOOL_NAME,
                 tool_input=normalize_summarize_input(normalized[len(marker):]),
                 reason="summarize_prefix_match",
                 confidence=0.95,
@@ -80,10 +81,14 @@ def get_tool_routing_decision(user_input: str) -> ToolRoutingDecision:
 
 def maybe_run_tool(user_input: str) -> str | None:
     decision = get_tool_routing_decision(user_input)
-    if decision.tool_name != summarize_text_tool.name:
+    if decision.tool_name != SUMMARIZE_TOOL_NAME:
+        return None
+
+    tool = get_tool(decision.tool_name)
+    if tool is None:
         return None
 
     if not decision.tool_input:
         return "Please provide text to summarize."
 
-    return summarize_text_tool.run(decision.tool_input)
+    return tool.run(decision.tool_input)

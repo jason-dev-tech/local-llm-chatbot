@@ -22,8 +22,8 @@ from rag.retrieval import retrieve_relevant_chunks
 from rag.router import get_routing_decision
 from rag.source_metadata import resolve_chunk_source
 from routing.llm_router import get_llm_routing_decision
+from tools.registry import get_tool
 from tools.router import maybe_run_tool
-from tools.summarize import summarize_text_tool
 
 SYSTEM_PROMPT = "You are a helpful assistant. Answer clearly and concisely."
 SESSION_TITLE_PROMPT = (
@@ -38,6 +38,7 @@ ATTRIBUTION_SECTION_PATTERN = re.compile(
     re.IGNORECASE,
 )
 WORD_PATTERN = re.compile(r"\b[a-z0-9]+\b")
+SUMMARIZE_TOOL_NAME = "summarize_text"
 
 
 def build_messages(session_id):
@@ -262,19 +263,27 @@ def maybe_run_retrieval_summary(user_input):
     if not retrieved_text:
         return "I couldn't find relevant knowledge to summarize."
 
-    summary = summarize_text_tool.run(retrieved_text)
+    summarize_tool = get_tool(SUMMARIZE_TOOL_NAME)
+    if summarize_tool is None:
+        return None
+
+    summary = summarize_tool.run(retrieved_text)
     return append_sources_to_answer(summary, chunks)
 
 
 def maybe_run_llm_routed_tool(user_input):
     llm_decision = get_llm_routing_decision(user_input)
-    if llm_decision.route != "tool:summarize_text":
+    if llm_decision.route != f"tool:{SUMMARIZE_TOOL_NAME}":
+        return None
+
+    summarize_tool = get_tool(SUMMARIZE_TOOL_NAME)
+    if summarize_tool is None:
         return None
 
     if not llm_decision.tool_input:
         return "Please provide text to summarize."
 
-    return summarize_text_tool.run(llm_decision.tool_input)
+    return summarize_tool.run(llm_decision.tool_input)
 
 
 def extract_source_list(chunks):
