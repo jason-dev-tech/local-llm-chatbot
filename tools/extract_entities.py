@@ -16,6 +16,7 @@ EMPTY_EXTRACTION = {
 JSON_BLOCK_PATTERN = re.compile(r"\{.*\}", re.DOTALL)
 FILE_PATTERN = re.compile(r"\b[\w.-]+\.[A-Za-z0-9]+\b")
 TOKEN_PATTERN = re.compile(r"\b[A-Za-z][A-Za-z0-9.+_-]*\b")
+INFORMATIVE_CHARACTER_PATTERN = re.compile(r"[A-Za-z0-9]")
 VALID_QUERY_TYPES = {
     "knowledge_lookup",
     "comparison",
@@ -194,6 +195,8 @@ def _deterministic_extract(text: str) -> dict:
 def extract_entities(text: str) -> str:
     normalized = " ".join(text.strip().split())
     if not normalized:
+        return json.dumps(dict(EMPTY_EXTRACTION))
+    if not INFORMATIVE_CHARACTER_PATTERN.search(normalized):
         return json.dumps(dict(EMPTY_EXTRACTION))
 
     prompt = (

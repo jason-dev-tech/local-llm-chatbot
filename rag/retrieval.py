@@ -26,9 +26,27 @@ def _get_vector_store() -> Chroma:
     )
 
 
-def retrieve_relevant_chunks(query: str, top_k: int = 3) -> list[dict]:
+def _build_filename_filter(file_filters: list[str] | None) -> dict | None:
+    if not file_filters:
+        return None
+
+    normalized_filters = [value.strip() for value in file_filters if isinstance(value, str) and value.strip()]
+    if not normalized_filters:
+        return None
+
+    if len(normalized_filters) == 1:
+        return {"filename": normalized_filters[0]}
+
+    return {"$or": [{"filename": value} for value in normalized_filters]}
+
+
+def retrieve_relevant_chunks(query: str, top_k: int = 3, file_filters: list[str] | None = None) -> list[dict]:
     vector_store = _get_vector_store()
-    scored_documents = vector_store.similarity_search_with_score(query, k=top_k)
+    scored_documents = vector_store.similarity_search_with_score(
+        query,
+        k=top_k,
+        filter=_build_filename_filter(file_filters),
+    )
 
     chunks = []
 

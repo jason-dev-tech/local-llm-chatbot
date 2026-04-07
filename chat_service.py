@@ -1,3 +1,4 @@
+import json
 import os
 import re
 
@@ -42,6 +43,7 @@ ATTRIBUTION_SECTION_PATTERN = re.compile(
     re.IGNORECASE,
 )
 WORD_PATTERN = re.compile(r"\b[a-z0-9]+\b")
+FILENAME_LIKE_PATTERN = re.compile(r"\b[\w.-]+\.[A-Za-z0-9]+\b")
 SUMMARIZE_TOOL_NAME = "summarize_text"
 
 
@@ -203,7 +205,11 @@ def build_rag_messages(session_id, user_input):
         messages = [{"role": "system", "content": SYSTEM_PROMPT}] + history
         return messages, []
 
-    chunks = retrieve_relevant_chunks(user_input, top_k=3)
+    chunks = retrieve_relevant_chunks(
+        user_input,
+        top_k=3,
+        file_filters=extract_retrieval_file_filters(user_input),
+    )
     context_text = build_citation_context_text(chunks)
 
     if context_text:
@@ -256,7 +262,11 @@ def maybe_run_retrieval_summary(user_input):
     if decision.route != "rag":
         return None
 
-    chunks = retrieve_relevant_chunks(user_input, top_k=3)
+    chunks = retrieve_relevant_chunks(
+        user_input,
+        top_k=3,
+        file_filters=extract_retrieval_file_filters(user_input),
+    )
     if not chunks:
         return "I couldn't find relevant knowledge to summarize."
 
@@ -289,6 +299,27 @@ def maybe_run_llm_routed_tool(user_input):
         return "Please provide text to summarize."
 
     return summarize_tool.run(llm_decision.tool_input)
+
+
+def extract_retrieval_file_filters(user_input):
+    if not FILENAME_LIKE_PATTERN.search(user_input):
+        return None
+
+    extract_entities_tool = get_tool("extract_entities")
+    if extract_entities_tool is None:
+        return None
+
+    try:
+        payload = json.loads(extract_entities_tool.run(user_input))
+    except (TypeError, json.JSONDecodeError):
+        return None
+
+    files = payload.get("files", [])
+    if not isinstance(files, list):
+        return None
+
+    normalized_files = [value.strip() for value in files if isinstance(value, str) and value.strip()]
+    return normalized_files or None
 
 
 def extract_source_list(chunks):
