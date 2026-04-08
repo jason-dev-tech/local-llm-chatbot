@@ -25,3 +25,4 @@ langchain
 langchain-openai
 langchain-chroma
 langchain-community
+pypdf

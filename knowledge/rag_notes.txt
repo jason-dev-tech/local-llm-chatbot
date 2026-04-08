@@ -1,0 +1,5 @@
+RAG stands for Retrieval-Augmented Generation.
+
+RAG is useful because it lets a model answer with local evidence instead of relying only on model memory. This makes answers easier to verify and easier to update when documents change.
+
+Retrieval helps grounding by finding the most relevant document chunks for a question and passing that context into generation. When the retrieved context is accurate, the final answer can stay closer to the source material.

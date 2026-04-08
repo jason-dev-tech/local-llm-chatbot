@@ -1,0 +1,10 @@
+FAQ Reference
+
+Q: Why do trust and citations matter in a RAG system?
+A: Citations show which source supported the answer, which helps users check whether the response is grounded.
+
+Q: What role does metadata play?
+A: Metadata keeps track of fields such as filename, source, and chunk index so the system can attribute retrieved content clearly.
+
+Q: Why is attribution useful?
+A: Attribution helps debugging, improves transparency, and makes it easier to confirm where a fact came from.

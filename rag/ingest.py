@@ -36,6 +36,11 @@ def run_ingestion() -> None:
                     "source": document["source"],
                     "filename": document["filename"],
                     "chunk_index": index,
+                    **(
+                        {"page_number": document["page_number"]}
+                        if "page_number" in document
+                        else {}
+                    ),
                 }
             )
 

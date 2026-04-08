@@ -1,0 +1,64 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 1003 >>
+stream
+BT
+/F1 12 Tf
+1 0 0 1 72 740 Tm
+(Retrieval is the step where a system searches stored document chunks and selects the) Tj
+0 -16 Td
+(most relevant context for a user question.) Tj
+0 -12 Td
+0 -16 Td
+(Grounding means the final answer stays tied to retrieved evidence instead of relying) Tj
+0 -16 Td
+(only on model memory or guesswork.) Tj
+0 -12 Td
+0 -16 Td
+(Citations are important because they show which source supported a claim, making the) Tj
+0 -16 Td
+(answer easier to verify and debug.) Tj
+0 -12 Td
+0 -16 Td
+(Chunking works by splitting a longer document into smaller sections so the retriever) Tj
+0 -16 Td
+(can match a question to a more precise passage.) Tj
+0 -12 Td
+0 -16 Td
+(A useful retrieval pipeline keeps document metadata such as filename and source) Tj
+0 -16 Td
+(label so attribution remains stable after retrieval.) Tj
+0 -12 Td
+0 -16 Td
+(A fact used only in this PDF is that overlap between chunks helps preserve meaning) Tj
+0 -16 Td
+(when a sentence spans a chunk boundary.) Tj
+0 -12 Td
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000311 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1366
+%%EOF
