@@ -1,8 +1,8 @@
 # 🤖 Local-First AI Chatbot with RAG, Citations, Tools, and Routing
 
-A local-first **full-stack AI application** built with FastAPI and React, powered by a local LLM and extended with **multi-source Retrieval-Augmented Generation (RAG)**, deterministic attribution, structured query understanding, and a lightweight agent foundation for tool-aware routing.
+A local-first **full-stack AI application** built with FastAPI and React, powered by a local LLM and extended with **multi-source Retrieval-Augmented Generation (RAG)**, deterministic attribution, structured query understanding, lightweight backend observability, and a lightweight agent foundation for tool-aware routing.
 
-The current system supports **real-time streaming**, **multi-session chat**, **multi-source retrieval**, **inline citations**, **registry-based tools**, **metadata-aware file filtering**, and **conservative routing** across chat, RAG, direct tools, and retrieval-summary flows.
+The current system supports **real-time streaming**, **multi-session chat**, **multi-source retrieval**, **inline citations**, **registry-based tools**, **metadata-aware file filtering**, **structured observability logging**, and **conservative routing** across chat, RAG, direct tools, and retrieval-summary flows.
 
 > This repository is maintained as a local-first engineering system.
 > It is **not an open-source project**. All rights are reserved.
@@ -16,6 +16,7 @@ This system combines three core capabilities in one local-first runtime:
 * **RAG** for knowledge-grounded responses over multi-source local documents
 * **Tools** for direct text operations and structured query understanding
 * **Routing** to decide between chat, retrieval, and explicit tool execution
+* **Observability** for backend-side request logging and terminal-based metrics aggregation
 
 The current implementation is positioned as an **extensible agent foundation**, not a full autonomous agent system. It emphasizes deterministic formatting, isolated execution paths, and evaluation-backed behavior.
 
@@ -37,6 +38,7 @@ The current implementation is positioned as an **extensible agent foundation**, 
 * Rule-based and LLM-assisted routing across chat, RAG, and tools
 * Structured query understanding that converts free-form input into downstream routing and retrieval signals
 * File-aware retrieval that uses explicit file references to apply metadata-based filtering and improve retrieval precision
+* Structured backend observability logging for routing, retrieval, and response behavior
 
 ## 📚 Retrieval-Augmented Generation (RAG)
 
@@ -95,6 +97,13 @@ The current implementation is positioned as an **extensible agent foundation**, 
 * JSON-aware tool evals for structured extraction output
 * Frontend validation completed for summarize, rewrite, normal chat, and RAG flows
 
+## 📈 Observability / Monitoring
+
+* Structured backend observability logs emitted during request handling
+* Automatic file-based backend log generation for real application runs
+* Terminal-based Metrics Aggregation Layer for request and retrieval summaries
+* Current monitoring workflow is backend-side only and is not exposed in the frontend
+
 ## 🗂 Session Management
 
 * Multi-session chat system
@@ -111,7 +120,7 @@ The current implementation is positioned as an **extensible agent foundation**, 
 
 ## Current Status
 
-The current milestone is a **production-style local AI system architecture** with multi-source RAG, deterministic attribution, registry-based tools, explicit tool priority, rule-based and LLM-assisted routing, and a narrow retrieval-summary composition path. The design is intentionally controlled and modular, with clear seams for extending the system without turning it into an uncontrolled agent loop.
+The current milestone is a **production-style local AI system architecture** with multi-source RAG, deterministic attribution, registry-based tools, explicit tool priority, rule-based and LLM-assisted routing, a narrow retrieval-summary composition path, and a lightweight observability and metrics foundation. The design is intentionally controlled and modular, with clear seams for extending the system without turning it into an uncontrolled agent loop.
 
 ---
 
@@ -178,6 +187,11 @@ Retrieval-summary path
    → Build text from retrieved context
    → Run summarize_text
    → Append attribution
+
+Observability path
+   → Structured route / retrieval / response log events
+   → Console output + local log file
+   → Terminal metrics summary script
 ```
 
 ## Separation of Concerns
@@ -187,6 +201,7 @@ Retrieval-summary path
 * **Response formatting** is responsible for inline citations and deterministic attribution output
 * **Routing** decides between explicit tools, RAG, retrieval-summary, and chat
 * **Structured extraction** provides normalized query signals for downstream decisions
+* **Observability** records structured backend events without changing response behavior
 
 ## Design Decisions
 
@@ -199,6 +214,7 @@ Retrieval-summary path
 * Lightweight query analysis is applied before retrieval when explicit signals such as filenames are present
 * Filtering is only applied when confident signals are detected to avoid degrading recall
 * The routing layer is conservative by design and avoids claiming full autonomy
+* Monitoring is currently implemented as backend logging plus terminal-based aggregation rather than a frontend dashboard
 
 ---
 
@@ -226,6 +242,8 @@ local-llm-chatbot/
 │   ├── run_evals.py
 │   ├── run_routing_evals.py
 │   └── run_tool_evals.py
+├── observability/
+│   └── metrics_summary.py
 ├── chat_service.py
 ├── llm.py
 ├── frontend/
@@ -262,6 +280,76 @@ If you see `ModuleNotFoundError` (for example `uvicorn` or `chromadb`), install 
 ```bash
 pip install -r requirements.txt
 ```
+
+## Backend Observability
+
+The backend writes structured observability events during real application runs. These logs are intended for terminal-side debugging and local monitoring, and they are not currently surfaced in the frontend UI.
+
+### What it captures
+
+* request route decisions
+* tool usage
+* retrieval event details such as filenames and chunk counts
+* response-stage latency
+* cited sources used in final answers when available
+
+### Where logs are written
+
+Backend logs are written automatically to:
+
+```bash
+logs/backend.log
+```
+
+The backend also continues to print logs to the terminal during normal development runs.
+
+### How to verify log generation
+
+1. Start the backend:
+
+```bash
+python -m uvicorn main:app --reload
+```
+
+2. Start the frontend and send a few chat, RAG, or tool requests.
+3. Confirm log output is being appended locally:
+
+```bash
+tail -f logs/backend.log
+```
+
+You should see structured JSON-style log lines for stages such as `route`, `retrieval`, and `response`.
+
+## Metrics Aggregation Layer
+
+The Metrics Aggregation Layer is a small backend-side CLI utility that reads structured observability logs and produces a readable monitoring summary for engineering review.
+
+Use it when you want a quick local view of request volume, routing behavior, latency, tool usage, or retrieval patterns from real chatbot runs.
+
+### Run the metrics summary
+
+From the project root:
+
+```bash
+python3 -m observability.metrics_summary logs/backend.log
+```
+
+You can also pass multiple log files or pipe log content into the command.
+
+### Summary output includes
+
+* overall request count
+* overall average response-stage latency
+* p50 and p95 response-stage latency
+* average latency grouped by effective route
+* route distribution
+* tool usage frequency
+* retrieval event count
+* average retrieved chunk count
+* zero-retrieval case count
+* most frequently retrieved filenames
+
+This monitoring capability is currently terminal-based and backend-side only. It provides a lightweight operational view of the system without introducing dashboards or external monitoring infrastructure.
 
 ---
 
@@ -317,6 +405,21 @@ Verified coverage includes:
 * Tool evaluation for summarize, rewrite, and structured extraction behavior
 * JSON-aware validation for valid JSON, expected keys, and expected extracted content
 
+## Monitoring Verification
+
+To verify the observability and metrics flow end to end:
+
+1. Start the backend with `uvicorn`
+2. Send messages from the frontend or CLI
+3. Confirm `logs/backend.log` is being written
+4. Run:
+
+```bash
+python3 -m observability.metrics_summary logs/backend.log
+```
+
+This should produce a readable request-level and retrieval-level metrics summary from actual backend log output.
+
 ## Frontend Behavior
 
 Verified frontend flows:
@@ -348,6 +451,8 @@ Frontend behavior includes streaming responses and sectioned source rendering fo
 - Deterministic and behavior-based evaluation coverage for routing, citations, source labels, multi-source retrieval, and tool behavior  
 
 - Verified frontend behavior for summarize, rewrite, chat, and RAG flows  
+
+- Backend observability with automatic file logging and a terminal-based metrics summary workflow  
 
 - System design emphasizes isolation, deterministic formatting, routing control, and extensibility  
 
