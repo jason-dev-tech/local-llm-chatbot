@@ -171,6 +171,31 @@ def _collect_outcome_metrics(response_events: list[dict], error_events: list[dic
     }
 
 
+def _collect_session_metrics(response_events: list[dict], error_events: list[dict]) -> dict:
+    session_requests = Counter()
+    session_route_usage: dict[str, Counter] = {}
+
+    for event in [*response_events, *error_events]:
+        session_id = event.get("session_id")
+        if not isinstance(session_id, str) or not session_id:
+            continue
+
+        session_requests[session_id] += 1
+
+        route = event.get("effective_route")
+        if not isinstance(route, str) or not route:
+            route = "unknown"
+
+        session_route_usage.setdefault(session_id, Counter())
+        session_route_usage[session_id][route] += 1
+
+    return {
+        "active_session_count": len(session_requests),
+        "requests_per_session": session_requests,
+        "route_usage_per_session": session_route_usage,
+    }
+
+
 def _collect_retrieval_metrics(retrieval_events: list[dict]) -> dict:
     chunk_counts = [
         int(event["retrieved_chunk_count"])
@@ -219,6 +244,7 @@ def build_metrics_report(events: list[dict]) -> str:
 
     response_metrics = _collect_response_metrics(response_events)
     outcome_metrics = _collect_outcome_metrics(response_events, error_events)
+    session_metrics = _collect_session_metrics(response_events, error_events)
     retrieval_metrics = _collect_retrieval_metrics(retrieval_events)
 
     lines = [
@@ -282,6 +308,29 @@ def build_metrics_report(events: list[dict]) -> str:
             "",
             "Tool usage frequency",
             *_format_count_map(response_metrics["tool_usage"]),
+            "",
+            "Session usage metrics",
+            f"- Active session count: {session_metrics['active_session_count']}",
+            "- Requests per session:",
+            *(
+                [f"- {session_id}: {count}" for session_id, count in session_metrics["requests_per_session"].most_common()]
+                if session_metrics["requests_per_session"]
+                else ["- none"]
+            ),
+            "",
+            "Route usage per session",
+            *(
+                [
+                    f"- {session_id}: "
+                    + ", ".join(
+                        f"{route}={count}"
+                        for route, count in session_metrics["route_usage_per_session"][session_id].most_common()
+                    )
+                    for session_id, _count in session_metrics["requests_per_session"].most_common()
+                ]
+                if session_metrics["route_usage_per_session"]
+                else ["- none"]
+            ),
             "",
             "Retrieval-event metrics",
             f"- Retrieval event count: {retrieval_metrics['retrieval_event_count']}",
