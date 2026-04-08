@@ -1,6 +1,8 @@
 import json
+import logging
 import os
 import re
+import time
 
 from db import (
     save_message,
@@ -24,7 +26,7 @@ from rag.router import get_routing_decision
 from rag.source_metadata import resolve_chunk_source
 from routing.llm_router import get_llm_routing_decision
 from tools.registry import get_tool
-from tools.router import maybe_run_tool
+from tools.router import get_tool_routing_decision, maybe_run_tool
 
 SYSTEM_PROMPT = "You are a helpful assistant. Answer clearly and concisely."
 SESSION_TITLE_PROMPT = (
@@ -45,11 +47,60 @@ ATTRIBUTION_SECTION_PATTERN = re.compile(
 WORD_PATTERN = re.compile(r"\b[a-z0-9]+\b")
 FILENAME_LIKE_PATTERN = re.compile(r"\b[\w.-]+\.[A-Za-z0-9]+\b")
 SUMMARIZE_TOOL_NAME = "summarize_text"
+LOGGER = logging.getLogger("chatbot.observability")
 
 
 def build_messages(session_id):
     history = get_recent_messages(session_id, limit=10)
     return [{"role": "system", "content": SYSTEM_PROMPT}] + history
+
+
+def log_observability_event(stage, **fields):
+    payload = {"stage": stage, **fields}
+    LOGGER.info(json.dumps(payload, ensure_ascii=True, sort_keys=True))
+
+
+def get_retrieved_filenames(chunks):
+    filenames = []
+    for chunk in chunks:
+        filename = chunk.get("metadata", {}).get("filename")
+        if isinstance(filename, str) and filename.strip():
+            filenames.append(filename.strip())
+    return list(dict.fromkeys(filenames))
+
+
+def get_used_source_labels(answer, chunks):
+    cited_source_numbers = extract_cited_source_numbers(answer)
+    if not cited_source_numbers:
+        return []
+
+    return [
+        source["label"]
+        for source in extract_source_list(chunks)
+        if source["number"] in cited_source_numbers
+    ]
+
+
+def log_response_observability(session_id, user_query, route, tool_name, chunks, answer, started_at):
+    log_observability_event(
+        "response",
+        session_id=session_id,
+        user_query=user_query,
+        effective_route=route,
+        tool_used=tool_name,
+        retrieved_filenames=get_retrieved_filenames(chunks),
+        retrieved_chunk_count=len(chunks),
+        sources_used=get_used_source_labels(answer, chunks),
+        latency_ms=round((time.perf_counter() - started_at) * 1000, 2),
+    )
+
+
+def get_tool_name_for_query(user_input, tool_result):
+    if isinstance(tool_result, str) and tool_result.startswith("{"):
+        return "extract_entities"
+
+    decision = get_tool_routing_decision(user_input)
+    return decision.tool_name
 
 
 def build_source_map(chunks):
@@ -196,14 +247,10 @@ def apply_inline_citations(answer, chunks):
 def build_rag_messages(session_id, user_input):
     history = get_recent_messages(session_id, limit=10)
     decision = get_effective_routing_decision(user_input)
-    print(
-        f"Routing decision: route={decision.route} "
-        f"reason={decision.reason} confidence={decision.confidence}"
-    )
 
     if decision.route != "rag":
         messages = [{"role": "system", "content": SYSTEM_PROMPT}] + history
-        return messages, []
+        return messages, [], decision
 
     chunks = retrieve_relevant_chunks(
         user_input,
@@ -230,7 +277,7 @@ def build_rag_messages(session_id, user_input):
         system_prompt = SYSTEM_PROMPT
 
     messages = [{"role": "system", "content": system_prompt}] + history
-    return messages, chunks
+    return messages, chunks, decision
 
 
 def get_effective_routing_decision(user_input):
@@ -418,29 +465,109 @@ def maybe_update_session_title(session_id, user_input):
 
 
 def send_message_and_stream(session_id, user_input):
+    started_at = time.perf_counter()
     save_message(session_id, "user", user_input)
 
     maybe_update_session_title(session_id, user_input)
 
     tool_result = maybe_run_tool(user_input)
     if tool_result is not None:
+        tool_decision = get_tool_name_for_query(user_input, tool_result)
+        log_observability_event(
+            "route",
+            session_id=session_id,
+            user_query=user_input,
+            effective_route="tool",
+            tool_used=tool_decision,
+        )
         save_message(session_id, "assistant", tool_result)
+        log_response_observability(
+            session_id,
+            user_input,
+            "tool",
+            tool_decision,
+            [],
+            tool_result,
+            started_at,
+        )
         yield tool_result
         return
 
     retrieval_summary_result = maybe_run_retrieval_summary(user_input)
     if retrieval_summary_result is not None:
+        retrieved_chunks = retrieve_relevant_chunks(
+            user_input,
+            top_k=3,
+            file_filters=extract_retrieval_file_filters(user_input),
+        )
+        log_observability_event(
+            "route",
+            session_id=session_id,
+            user_query=user_input,
+            effective_route="rag",
+            tool_used=None,
+        )
+        log_observability_event(
+            "retrieval",
+            session_id=session_id,
+            user_query=user_input,
+            effective_route="rag",
+            retrieved_filenames=get_retrieved_filenames(retrieved_chunks),
+            retrieved_chunk_count=len(retrieved_chunks),
+        )
         save_message(session_id, "assistant", retrieval_summary_result)
+        log_response_observability(
+            session_id,
+            user_input,
+            "rag",
+            None,
+            retrieved_chunks,
+            retrieval_summary_result,
+            started_at,
+        )
         yield retrieval_summary_result
         return
 
     llm_tool_result = maybe_run_llm_routed_tool(user_input)
     if llm_tool_result is not None:
+        log_observability_event(
+            "route",
+            session_id=session_id,
+            user_query=user_input,
+            effective_route="tool",
+            tool_used=SUMMARIZE_TOOL_NAME,
+        )
         save_message(session_id, "assistant", llm_tool_result)
+        log_response_observability(
+            session_id,
+            user_input,
+            "tool",
+            SUMMARIZE_TOOL_NAME,
+            [],
+            llm_tool_result,
+            started_at,
+        )
         yield llm_tool_result
         return
 
-    messages, chunks = build_rag_messages(session_id, user_input)
+    messages, chunks, decision = build_rag_messages(session_id, user_input)
+    log_observability_event(
+        "route",
+        session_id=session_id,
+        user_query=user_input,
+        effective_route=decision.route,
+        tool_used=None,
+        route_reason=decision.reason,
+        route_confidence=decision.confidence,
+    )
+    log_observability_event(
+        "retrieval",
+        session_id=session_id,
+        user_query=user_input,
+        effective_route=decision.route,
+        retrieved_filenames=get_retrieved_filenames(chunks),
+        retrieved_chunk_count=len(chunks),
+    )
     answer_parts = []
 
     if chunks:
@@ -457,35 +584,117 @@ def send_message_and_stream(session_id, user_input):
     answer = apply_inline_citations(answer, chunks)
     answer = append_sources_to_answer(answer, chunks)
     save_message(session_id, "assistant", answer)
+    log_response_observability(session_id, user_input, decision.route, None, chunks, answer, started_at)
 
 
 def send_message(session_id, user_input):
+    started_at = time.perf_counter()
     save_message(session_id, "user", user_input)
 
     maybe_update_session_title(session_id, user_input)
 
     tool_result = maybe_run_tool(user_input)
     if tool_result is not None:
+        tool_decision = get_tool_name_for_query(user_input, tool_result)
+        log_observability_event(
+            "route",
+            session_id=session_id,
+            user_query=user_input,
+            effective_route="tool",
+            tool_used=tool_decision,
+        )
         save_message(session_id, "assistant", tool_result)
+        log_response_observability(
+            session_id,
+            user_input,
+            "tool",
+            tool_decision,
+            [],
+            tool_result,
+            started_at,
+        )
         return tool_result
 
     retrieval_summary_result = maybe_run_retrieval_summary(user_input)
     if retrieval_summary_result is not None:
+        retrieved_chunks = retrieve_relevant_chunks(
+            user_input,
+            top_k=3,
+            file_filters=extract_retrieval_file_filters(user_input),
+        )
+        log_observability_event(
+            "route",
+            session_id=session_id,
+            user_query=user_input,
+            effective_route="rag",
+            tool_used=None,
+        )
+        log_observability_event(
+            "retrieval",
+            session_id=session_id,
+            user_query=user_input,
+            effective_route="rag",
+            retrieved_filenames=get_retrieved_filenames(retrieved_chunks),
+            retrieved_chunk_count=len(retrieved_chunks),
+        )
         save_message(session_id, "assistant", retrieval_summary_result)
+        log_response_observability(
+            session_id,
+            user_input,
+            "rag",
+            None,
+            retrieved_chunks,
+            retrieval_summary_result,
+            started_at,
+        )
         return retrieval_summary_result
 
     llm_tool_result = maybe_run_llm_routed_tool(user_input)
     if llm_tool_result is not None:
+        log_observability_event(
+            "route",
+            session_id=session_id,
+            user_query=user_input,
+            effective_route="tool",
+            tool_used=SUMMARIZE_TOOL_NAME,
+        )
         save_message(session_id, "assistant", llm_tool_result)
+        log_response_observability(
+            session_id,
+            user_input,
+            "tool",
+            SUMMARIZE_TOOL_NAME,
+            [],
+            llm_tool_result,
+            started_at,
+        )
         return llm_tool_result
 
-    messages, chunks = build_rag_messages(session_id, user_input)
+    messages, chunks, decision = build_rag_messages(session_id, user_input)
+    log_observability_event(
+        "route",
+        session_id=session_id,
+        user_query=user_input,
+        effective_route=decision.route,
+        tool_used=None,
+        route_reason=decision.reason,
+        route_confidence=decision.confidence,
+    )
+    log_observability_event(
+        "retrieval",
+        session_id=session_id,
+        user_query=user_input,
+        effective_route=decision.route,
+        retrieved_filenames=get_retrieved_filenames(chunks),
+        retrieved_chunk_count=len(chunks),
+    )
     answer = generate_response(messages)
     answer = normalize_answer_body(answer)
     answer = apply_inline_citations(answer, chunks)
     answer = append_sources_to_answer(answer, chunks)
 
     save_message(session_id, "assistant", answer)
+    log_response_observability(session_id, user_input, decision.route, None, chunks, answer, started_at)
     return answer
 
 

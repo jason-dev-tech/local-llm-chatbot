@@ -1,4 +1,5 @@
 import json
+import logging
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,6 +13,12 @@ from chat_service import (
     remove_session,
     send_message,
     send_message_and_stream,
+)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(message)s",
+    force=True,
 )
 
 app = FastAPI(title="Local AI Chatbot API")
