@@ -29,6 +29,43 @@ from tools.registry import get_tool
 from tools.router import get_tool_routing_decision, maybe_run_tool
 
 SYSTEM_PROMPT = "You are a helpful assistant. Answer clearly and concisely."
+INSUFFICIENT_EVIDENCE_RESPONSE = (
+    "I couldn't find enough relevant evidence in the knowledge base to answer that confidently."
+)
+MIN_RELEVANT_RERANK_SCORE = 0.45
+MIN_QUERY_TOKEN_OVERLAP = 2
+MIN_SIGNIFICANT_TOKEN_LENGTH = 4
+LOW_INFORMATION_QUERY_TOKENS = {
+    "what",
+    "when",
+    "where",
+    "which",
+    "while",
+    "this",
+    "that",
+    "with",
+    "from",
+    "into",
+    "about",
+    "have",
+    "does",
+    "would",
+    "could",
+    "should",
+    "there",
+    "their",
+    "they",
+    "them",
+    "your",
+    "data",
+    "memory",
+}
+DEFINITION_QUERY_PATTERNS = (
+    "what is ",
+    "what are ",
+    "what does ",
+    "define ",
+)
 SESSION_TITLE_PROMPT = (
     "Generate a short and concise title for a chat session based on the user's first message. "
     "Return only the title, with no quotes or extra explanation. Keep it under 8 words.\n\n"
@@ -95,6 +132,19 @@ def log_response_observability(session_id, user_query, route, tool_name, chunks,
     )
 
 
+def log_guardrail_observability(session_id, user_query, route, chunks, started_at):
+    log_observability_event(
+        "guardrail",
+        session_id=session_id,
+        user_query=user_query,
+        effective_route=route,
+        guardrail_type="insufficient_evidence",
+        retrieved_filenames=get_retrieved_filenames(chunks),
+        retrieved_chunk_count=len(chunks),
+        latency_ms=round((time.perf_counter() - started_at) * 1000, 2),
+    )
+
+
 def log_error_observability(session_id, user_query, route, tool_name, chunks, started_at, error):
     log_observability_event(
         "error",
@@ -126,6 +176,45 @@ def build_source_map(chunks):
             source_map[source] = len(source_map) + 1
 
     return source_map
+
+
+def has_usable_retrieval_evidence(user_input, chunks):
+    normalized_query = user_input.strip().lower()
+    query_tokens = tokenize_text(user_input)
+    significant_query_tokens = {
+        token for token in query_tokens
+        if (
+            len(token) >= MIN_SIGNIFICANT_TOKEN_LENGTH
+            and token not in LOW_INFORMATION_QUERY_TOKENS
+        )
+    }
+    is_definition_query = normalized_query.startswith(DEFINITION_QUERY_PATTERNS)
+
+    for chunk in chunks:
+        content = chunk.get("content", "")
+        if not isinstance(content, str) or not content.strip():
+            continue
+
+        chunk_tokens = tokenize_text(content)
+        rerank_score = chunk.get("rerank_score")
+        overlap_ok = (
+            bool(significant_query_tokens)
+            and len(significant_query_tokens & chunk_tokens) >= MIN_QUERY_TOKEN_OVERLAP
+        )
+        rerank_ok = (
+            isinstance(rerank_score, (int, float))
+            and rerank_score >= MIN_RELEVANT_RERANK_SCORE
+        )
+
+        if is_definition_query:
+            if rerank_ok:
+                return True
+            continue
+
+        if overlap_ok and rerank_ok:
+            return True
+
+    return False
 
 
 def format_source_label(source, metadata):
@@ -592,6 +681,21 @@ def send_message_and_stream(session_id, user_input):
             retrieved_filenames=get_retrieved_filenames(chunks),
             retrieved_chunk_count=len(chunks),
         )
+        if route == "rag" and not has_usable_retrieval_evidence(user_input, chunks):
+            log_guardrail_observability(session_id, user_input, route, chunks, started_at)
+            save_message(session_id, "assistant", INSUFFICIENT_EVIDENCE_RESPONSE)
+            log_response_observability(
+                session_id,
+                user_input,
+                route,
+                None,
+                chunks,
+                INSUFFICIENT_EVIDENCE_RESPONSE,
+                started_at,
+            )
+            yield INSUFFICIENT_EVIDENCE_RESPONSE
+            return
+
         answer_parts = []
 
         if chunks:
@@ -725,6 +829,20 @@ def send_message(session_id, user_input):
             retrieved_filenames=get_retrieved_filenames(chunks),
             retrieved_chunk_count=len(chunks),
         )
+        if route == "rag" and not has_usable_retrieval_evidence(user_input, chunks):
+            log_guardrail_observability(session_id, user_input, route, chunks, started_at)
+            save_message(session_id, "assistant", INSUFFICIENT_EVIDENCE_RESPONSE)
+            log_response_observability(
+                session_id,
+                user_input,
+                route,
+                None,
+                chunks,
+                INSUFFICIENT_EVIDENCE_RESPONSE,
+                started_at,
+            )
+            return INSUFFICIENT_EVIDENCE_RESPONSE
+
         answer = generate_response(messages)
         answer = normalize_answer_body(answer)
         answer = apply_inline_citations(answer, chunks)

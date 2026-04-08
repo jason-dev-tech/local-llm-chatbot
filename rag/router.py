@@ -14,14 +14,25 @@ RAG_CONTEXT_TERMS = {
     "knowledge",
     "document",
     "documents",
+    "citation",
+    "citations",
+    "metadata",
+    "grounding",
+    "chunking",
+    "source",
+    "sources",
 }
 
 RAG_INTENT_TERMS = {
     "explain",
     "what is",
+    "what are",
+    "what does",
+    "define",
     "how does",
     "how do",
     "why does",
+    "why do",
     "summarize",
 }
 
@@ -69,6 +80,13 @@ def get_routing_decision(user_input: str) -> RoutingDecision:
             route="rag",
             reason="strong_keyword_match",
             confidence=0.9,
+        )
+
+    if any(term in normalized for term in RAG_CONTEXT_TERMS) and normalized.endswith("?"):
+        return RoutingDecision(
+            route="rag",
+            reason="factual_question_match",
+            confidence=0.8,
         )
 
     if any(term in normalized for term in RAG_CONTEXT_TERMS) and any(
