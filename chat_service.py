@@ -118,12 +118,13 @@ def get_used_source_labels(answer, chunks):
     ]
 
 
-def log_response_observability(session_id, user_query, route, tool_name, chunks, answer, started_at):
+def log_response_observability(session_id, user_query, route, tool_name, chunks, answer, started_at, response_mode):
     log_observability_event(
         "response",
         session_id=session_id,
         user_query=user_query,
         effective_route=route,
+        response_mode=response_mode,
         tool_used=tool_name,
         retrieved_filenames=get_retrieved_filenames(chunks),
         retrieved_chunk_count=len(chunks),
@@ -598,6 +599,7 @@ def send_message_and_stream(session_id, user_input):
                 chunks,
                 tool_result,
                 started_at,
+                "tool",
             )
             yield tool_result
             return
@@ -634,6 +636,7 @@ def send_message_and_stream(session_id, user_input):
                 chunks,
                 retrieval_summary_result,
                 started_at,
+                "rag_response",
             )
             yield retrieval_summary_result
             return
@@ -658,6 +661,7 @@ def send_message_and_stream(session_id, user_input):
                 chunks,
                 llm_tool_result,
                 started_at,
+                "tool",
             )
             yield llm_tool_result
             return
@@ -692,6 +696,7 @@ def send_message_and_stream(session_id, user_input):
                 chunks,
                 INSUFFICIENT_EVIDENCE_RESPONSE,
                 started_at,
+                "insufficient_evidence",
             )
             yield INSUFFICIENT_EVIDENCE_RESPONSE
             return
@@ -712,7 +717,7 @@ def send_message_and_stream(session_id, user_input):
         answer = apply_inline_citations(answer, chunks)
         answer = append_sources_to_answer(answer, chunks)
         save_message(session_id, "assistant", answer)
-        log_response_observability(session_id, user_input, route, None, chunks, answer, started_at)
+        log_response_observability(session_id, user_input, route, None, chunks, answer, started_at, "rag_response" if route == "rag" else "chat")
     except Exception as error:
         log_error_observability(session_id, user_input, route, tool_name, chunks, started_at, error)
         raise
@@ -749,6 +754,7 @@ def send_message(session_id, user_input):
                 chunks,
                 tool_result,
                 started_at,
+                "tool",
             )
             return tool_result
 
@@ -784,6 +790,7 @@ def send_message(session_id, user_input):
                 chunks,
                 retrieval_summary_result,
                 started_at,
+                "rag_response",
             )
             return retrieval_summary_result
 
@@ -807,6 +814,7 @@ def send_message(session_id, user_input):
                 chunks,
                 llm_tool_result,
                 started_at,
+                "tool",
             )
             return llm_tool_result
 
@@ -840,6 +848,7 @@ def send_message(session_id, user_input):
                 chunks,
                 INSUFFICIENT_EVIDENCE_RESPONSE,
                 started_at,
+                "insufficient_evidence",
             )
             return INSUFFICIENT_EVIDENCE_RESPONSE
 
@@ -849,7 +858,7 @@ def send_message(session_id, user_input):
         answer = append_sources_to_answer(answer, chunks)
 
         save_message(session_id, "assistant", answer)
-        log_response_observability(session_id, user_input, route, None, chunks, answer, started_at)
+        log_response_observability(session_id, user_input, route, None, chunks, answer, started_at, "rag_response" if route == "rag" else "chat")
         return answer
     except Exception as error:
         log_error_observability(session_id, user_input, route, tool_name, chunks, started_at, error)
