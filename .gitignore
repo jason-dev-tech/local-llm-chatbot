@@ -209,6 +209,9 @@ __marimo__/
 # Local data directory (runtime files such as SQLite DB, embeddings, cache)
 data/
 
+# Runtime logs
+logs/*.log
+
 # Frontend (React / Vite)
 frontend/node_modules/
 frontend/dist/

@@ -1,5 +1,6 @@
 import json
 import logging
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,10 +16,18 @@ from chat_service import (
     send_message_and_stream,
 )
 
+LOG_DIR = Path("logs")
+LOG_DIR.mkdir(exist_ok=True)
+BACKEND_LOG_PATH = LOG_DIR / "backend.log"
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(message)s",
     force=True,
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler(BACKEND_LOG_PATH, encoding="utf-8"),
+    ],
 )
 
 app = FastAPI(title="Local AI Chatbot API")
