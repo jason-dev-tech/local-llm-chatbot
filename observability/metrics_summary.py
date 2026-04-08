@@ -141,6 +141,36 @@ def _collect_response_metrics(response_events: list[dict]) -> dict:
     }
 
 
+def _collect_outcome_metrics(response_events: list[dict], error_events: list[dict]) -> dict:
+    total_successes = len(response_events)
+    total_failures = len(error_events)
+    total_outcomes = total_successes + total_failures
+
+    route_outcomes: dict[str, dict[str, int]] = {}
+
+    for event in response_events:
+        route = event.get("effective_route")
+        if not isinstance(route, str) or not route:
+            route = "unknown"
+        route_outcomes.setdefault(route, {"success": 0, "failure": 0})
+        route_outcomes[route]["success"] += 1
+
+    for event in error_events:
+        route = event.get("effective_route")
+        if not isinstance(route, str) or not route:
+            route = "unknown"
+        route_outcomes.setdefault(route, {"success": 0, "failure": 0})
+        route_outcomes[route]["failure"] += 1
+
+    return {
+        "request_count": total_outcomes,
+        "success_count": total_successes,
+        "failure_count": total_failures,
+        "success_rate": (total_successes / total_outcomes) if total_outcomes else None,
+        "route_outcomes": route_outcomes,
+    }
+
+
 def _collect_retrieval_metrics(retrieval_events: list[dict]) -> dict:
     chunk_counts = [
         int(event["retrieved_chunk_count"])
@@ -178,28 +208,61 @@ def build_metrics_report(events: list[dict]) -> str:
         )
 
     response_events = [event for event in events if event.get("stage") == "response"]
+    error_events = [event for event in events if event.get("stage") == "error"]
     retrieval_events = [event for event in events if event.get("stage") == "retrieval"]
 
-    if not response_events and not retrieval_events:
+    if not response_events and not error_events and not retrieval_events:
         return (
             "No supported observability events were found.\n\n"
-            "Expected JSON log lines with a `stage` field such as `response` or `retrieval`."
+            "Expected JSON log lines with a `stage` field such as `response`, `error`, or `retrieval`."
         )
 
     response_metrics = _collect_response_metrics(response_events)
+    outcome_metrics = _collect_outcome_metrics(response_events, error_events)
     retrieval_metrics = _collect_retrieval_metrics(retrieval_events)
 
     lines = [
         "Metrics Summary",
         "",
         "Request-level metrics",
-        f"- Overall request count: {response_metrics['request_count']}",
+        f"- Overall request count: {outcome_metrics['request_count']}",
+        f"- Successful response count: {response_metrics['request_count']}",
         f"- Overall average response-stage latency: {_format_ms(response_metrics['average_latency_ms'])}",
         f"- Response-stage latency p50: {_format_ms(response_metrics['p50_latency_ms'])}",
         f"- Response-stage latency p95: {_format_ms(response_metrics['p95_latency_ms'])}",
         "",
-        "Average response-stage latency by effective route",
+        "Request outcome metrics",
+        f"- Overall success count: {outcome_metrics['success_count']}",
+        f"- Overall failure count: {outcome_metrics['failure_count']}",
+        (
+            f"- Overall success rate: {outcome_metrics['success_rate'] * 100:.1f}%"
+            if outcome_metrics["success_rate"] is not None
+            else "- Overall success rate: n/a"
+        ),
+        "",
+        "Per-route outcomes",
     ]
+
+    route_outcomes = outcome_metrics["route_outcomes"]
+    if route_outcomes:
+        for route in sorted(route_outcomes):
+            success_count = route_outcomes[route]["success"]
+            failure_count = route_outcomes[route]["failure"]
+            total_count = success_count + failure_count
+            success_rate = (success_count / total_count) if total_count else 0.0
+            lines.append(
+                f"- {route}: success={success_count}, failure={failure_count}, "
+                f"success_rate={success_rate * 100:.1f}%"
+            )
+    else:
+        lines.append("- none")
+
+    lines.extend(
+        [
+            "",
+        "Average response-stage latency by effective route",
+        ]
+    )
 
     route_latencies = response_metrics["route_latencies"]
     if route_latencies:
@@ -211,7 +274,7 @@ def build_metrics_report(events: list[dict]) -> str:
     lines.extend(
         [
             "",
-            "Route distribution",
+            "Successful response distribution by effective route",
             *_format_route_distribution(
                 response_metrics["route_distribution"],
                 response_metrics["request_count"],
