@@ -196,6 +196,54 @@ def _collect_session_metrics(response_events: list[dict], error_events: list[dic
     }
 
 
+def _collect_query_metrics(response_events: list[dict], error_events: list[dict], retrieval_events: list[dict]) -> dict:
+    repeated_queries = Counter()
+    route_queries: dict[str, Counter] = {}
+    zero_retrieval_queries = Counter()
+
+    for event in [*response_events, *error_events]:
+        user_query = event.get("user_query")
+        if not isinstance(user_query, str) or not user_query.strip():
+            continue
+
+        normalized_query = user_query.strip()
+        if normalized_query.startswith("/"):
+            continue
+
+        repeated_queries[normalized_query] += 1
+
+        route = event.get("effective_route")
+        if not isinstance(route, str) or not route:
+            route = "unknown"
+
+        route_queries.setdefault(route, Counter())
+        route_queries[route][normalized_query] += 1
+
+    for event in retrieval_events:
+        route = event.get("effective_route")
+        if route != "rag":
+            continue
+
+        if event.get("retrieved_chunk_count") != 0:
+            continue
+
+        user_query = event.get("user_query")
+        if not isinstance(user_query, str) or not user_query.strip():
+            continue
+
+        normalized_query = user_query.strip()
+        if normalized_query.startswith("/"):
+            continue
+
+        zero_retrieval_queries[normalized_query] += 1
+
+    return {
+        "repeated_queries": repeated_queries,
+        "route_queries": route_queries,
+        "zero_retrieval_queries": zero_retrieval_queries,
+    }
+
+
 def _collect_retrieval_metrics(retrieval_events: list[dict]) -> dict:
     chunk_counts = [
         int(event["retrieved_chunk_count"])
@@ -245,6 +293,7 @@ def build_metrics_report(events: list[dict]) -> str:
     response_metrics = _collect_response_metrics(response_events)
     outcome_metrics = _collect_outcome_metrics(response_events, error_events)
     session_metrics = _collect_session_metrics(response_events, error_events)
+    query_metrics = _collect_query_metrics(response_events, error_events, retrieval_events)
     retrieval_metrics = _collect_retrieval_metrics(retrieval_events)
 
     lines = [
@@ -329,6 +378,35 @@ def build_metrics_report(events: list[dict]) -> str:
                     for session_id, _count in session_metrics["requests_per_session"].most_common()
                 ]
                 if session_metrics["route_usage_per_session"]
+                else ["- none"]
+            ),
+            "",
+            "Query insights",
+            "- Top repeated user queries:",
+            *(
+                [f"- {query}: {count}" for query, count in query_metrics["repeated_queries"].most_common(5)]
+                if query_metrics["repeated_queries"]
+                else ["- none"]
+            ),
+            "",
+            "Query counts grouped by effective route",
+            *(
+                [
+                    f"- {route}: "
+                    + ", ".join(
+                        f"{query}={count}"
+                        for query, count in query_metrics["route_queries"][route].most_common(5)
+                    )
+                    for route in sorted(query_metrics["route_queries"])
+                ]
+                if query_metrics["route_queries"]
+                else ["- none"]
+            ),
+            "",
+            "Top zero-retrieval queries",
+            *(
+                [f"- {query}: {count}" for query, count in query_metrics["zero_retrieval_queries"].most_common(5)]
+                if query_metrics["zero_retrieval_queries"]
                 else ["- none"]
             ),
             "",
