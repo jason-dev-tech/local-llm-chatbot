@@ -101,7 +101,7 @@ The current implementation is positioned as an **extensible agent foundation**, 
 
 * Structured backend observability logs emitted during request handling
 * Automatic file-based backend log generation for real application runs
-* Terminal-based Metrics Aggregation Layer for request and retrieval summaries
+* Terminal-based Metrics Aggregation Layer for request, outcome, session, query, and retrieval summaries
 * Current monitoring workflow is backend-side only and is not exposed in the frontend
 
 ## 🗂 Session Management
@@ -318,13 +318,13 @@ python -m uvicorn main:app --reload
 tail -f logs/backend.log
 ```
 
-You should see structured JSON-style log lines for stages such as `route`, `retrieval`, and `response`.
+You should see structured JSON-style log lines for stages such as `route`, `retrieval`, `response`, and `error`.
 
 ## Metrics Aggregation Layer
 
-The Metrics Aggregation Layer is a small backend-side CLI utility that reads structured observability logs and produces a readable monitoring summary for engineering review.
+The Metrics Aggregation Layer is a small backend-side CLI utility that reads structured backend observability logs and produces a readable monitoring summary for engineering review.
 
-Use it when you want a quick local view of request volume, routing behavior, latency, tool usage, or retrieval patterns from real chatbot runs.
+Use it when you want a quick local view of request volume, request outcomes, routing behavior, latency, session usage, query patterns, tool usage, or retrieval behavior from real chatbot runs.
 
 ### Run the metrics summary
 
@@ -339,17 +339,25 @@ You can also pass multiple log files or pipe log content into the command.
 ### Summary output includes
 
 * overall request count
+* overall success / failure counts and success rate
 * overall average response-stage latency
 * p50 and p95 response-stage latency
 * average latency grouped by effective route
-* route distribution
+* successful response distribution by effective route
+* per-route success / failure counts and success rate
 * tool usage frequency
+* active session count
+* requests per session
+* route usage per session
+* top repeated user queries
+* query counts grouped by effective route
 * retrieval event count
 * average retrieved chunk count
 * zero-retrieval case count
+* top zero-retrieval queries for RAG retrieval events
 * most frequently retrieved filenames
 
-This monitoring capability is currently terminal-based and backend-side only. It provides a lightweight operational view of the system without introducing dashboards or external monitoring infrastructure.
+This monitoring capability is currently terminal-based and backend-side only. It provides a lightweight operational view of the system without introducing dashboards or external monitoring infrastructure. The presentation layer may be extended later, but the current implementation is intentionally a local CLI workflow.
 
 ---
 
