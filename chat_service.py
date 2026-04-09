@@ -34,7 +34,7 @@ INSUFFICIENT_EVIDENCE_RESPONSE = (
 )
 MIN_RELEVANT_RERANK_SCORE = 0.45
 MIN_QUERY_TOKEN_OVERLAP = 2
-MIN_SIGNIFICANT_TOKEN_LENGTH = 4
+MIN_SIGNIFICANT_TOKEN_LENGTH = 3
 LOW_INFORMATION_QUERY_TOKENS = {
     "what",
     "when",
@@ -60,6 +60,23 @@ LOW_INFORMATION_QUERY_TOKENS = {
     "data",
     "memory",
 }
+GENERIC_EVIDENCE_TOKENS = {
+    "api",
+    "architecture",
+    "config",
+    "design",
+    "documentation",
+    "endpoint",
+    "implementation",
+    "model",
+    "policy",
+    "protocol",
+    "schema",
+    "specification",
+    "stand",
+    "version",
+    "workflow",
+}
 DEFINITION_QUERY_PATTERNS = (
     "what is ",
     "what are ",
@@ -82,6 +99,7 @@ ATTRIBUTION_SECTION_PATTERN = re.compile(
     re.IGNORECASE,
 )
 WORD_PATTERN = re.compile(r"\b[a-z0-9]+\b")
+COMPOUND_TERM_PATTERN = re.compile(r"\b[a-z0-9]+(?:[-_][a-z0-9]+)+\b")
 FILENAME_LIKE_PATTERN = re.compile(r"\b[\w.-]+\.[A-Za-z0-9]+\b")
 SUMMARIZE_TOOL_NAME = "summarize_text"
 LOGGER = logging.getLogger("chatbot.observability")
@@ -168,6 +186,16 @@ def get_tool_name_for_query(user_input, tool_result):
     return decision.tool_name
 
 
+def get_response_mode(route, tool_name, *, evidence_sufficient=None):
+    if route == "tool" or tool_name:
+        return "tool"
+    if route == "rag":
+        if evidence_sufficient is False:
+            return "insufficient_evidence"
+        return "rag_response"
+    return "chat"
+
+
 def build_source_map(chunks):
     source_map = {}
 
@@ -182,35 +210,45 @@ def build_source_map(chunks):
 def has_usable_retrieval_evidence(user_input, chunks):
     normalized_query = user_input.strip().lower()
     query_tokens = tokenize_text(user_input)
-    significant_query_tokens = {
+    meaningful_query_tokens = {
         token for token in query_tokens
         if (
             len(token) >= MIN_SIGNIFICANT_TOKEN_LENGTH
             and token not in LOW_INFORMATION_QUERY_TOKENS
+            and token not in GENERIC_EVIDENCE_TOKENS
         )
     }
     is_definition_query = normalized_query.startswith(DEFINITION_QUERY_PATTERNS)
+    compound_query_terms = {
+        match.group(0)
+        for match in COMPOUND_TERM_PATTERN.finditer(normalized_query)
+    }
 
     for chunk in chunks:
         content = chunk.get("content", "")
         if not isinstance(content, str) or not content.strip():
             continue
 
+        normalized_content = content.lower()
         chunk_tokens = tokenize_text(content)
         rerank_score = chunk.get("rerank_score")
-        overlap_ok = (
-            bool(significant_query_tokens)
-            and len(significant_query_tokens & chunk_tokens) >= MIN_QUERY_TOKEN_OVERLAP
-        )
+        overlap_count = len(meaningful_query_tokens & chunk_tokens) if meaningful_query_tokens else 0
+
+        if is_definition_query:
+            required_overlap = 2 if len(meaningful_query_tokens) > 1 else 1
+            overlap_ok = overlap_count >= required_overlap
+            if compound_query_terms:
+                overlap_ok = overlap_ok and any(
+                    compound_term in normalized_content
+                    for compound_term in compound_query_terms
+                )
+        else:
+            overlap_ok = overlap_count >= MIN_QUERY_TOKEN_OVERLAP
+
         rerank_ok = (
             isinstance(rerank_score, (int, float))
             and rerank_score >= MIN_RELEVANT_RERANK_SCORE
         )
-
-        if is_definition_query:
-            if rerank_ok:
-                return True
-            continue
 
         if overlap_ok and rerank_ok:
             return True
@@ -636,7 +674,11 @@ def send_message_and_stream(session_id, user_input):
                 chunks,
                 retrieval_summary_result,
                 started_at,
-                "rag_response",
+                get_response_mode(
+                    route,
+                    None,
+                    evidence_sufficient=has_usable_retrieval_evidence(user_input, chunks),
+                ),
             )
             yield retrieval_summary_result
             return
@@ -661,7 +703,7 @@ def send_message_and_stream(session_id, user_input):
                 chunks,
                 llm_tool_result,
                 started_at,
-                "tool",
+                get_response_mode(route, tool_name, evidence_sufficient=None),
             )
             yield llm_tool_result
             return
@@ -696,7 +738,7 @@ def send_message_and_stream(session_id, user_input):
                 chunks,
                 INSUFFICIENT_EVIDENCE_RESPONSE,
                 started_at,
-                "insufficient_evidence",
+                get_response_mode(route, None, evidence_sufficient=False),
             )
             yield INSUFFICIENT_EVIDENCE_RESPONSE
             return
@@ -717,7 +759,20 @@ def send_message_and_stream(session_id, user_input):
         answer = apply_inline_citations(answer, chunks)
         answer = append_sources_to_answer(answer, chunks)
         save_message(session_id, "assistant", answer)
-        log_response_observability(session_id, user_input, route, None, chunks, answer, started_at, "rag_response" if route == "rag" else "chat")
+        log_response_observability(
+            session_id,
+            user_input,
+            route,
+            None,
+            chunks,
+            answer,
+            started_at,
+            get_response_mode(
+                route,
+                None,
+                evidence_sufficient=has_usable_retrieval_evidence(user_input, chunks) if route == "rag" else None,
+            ),
+        )
     except Exception as error:
         log_error_observability(session_id, user_input, route, tool_name, chunks, started_at, error)
         raise
@@ -790,7 +845,11 @@ def send_message(session_id, user_input):
                 chunks,
                 retrieval_summary_result,
                 started_at,
-                "rag_response",
+                get_response_mode(
+                    route,
+                    None,
+                    evidence_sufficient=has_usable_retrieval_evidence(user_input, chunks),
+                ),
             )
             return retrieval_summary_result
 
@@ -814,7 +873,7 @@ def send_message(session_id, user_input):
                 chunks,
                 llm_tool_result,
                 started_at,
-                "tool",
+                get_response_mode(route, tool_name, evidence_sufficient=None),
             )
             return llm_tool_result
 
@@ -848,7 +907,7 @@ def send_message(session_id, user_input):
                 chunks,
                 INSUFFICIENT_EVIDENCE_RESPONSE,
                 started_at,
-                "insufficient_evidence",
+                get_response_mode(route, None, evidence_sufficient=False),
             )
             return INSUFFICIENT_EVIDENCE_RESPONSE
 
@@ -858,7 +917,20 @@ def send_message(session_id, user_input):
         answer = append_sources_to_answer(answer, chunks)
 
         save_message(session_id, "assistant", answer)
-        log_response_observability(session_id, user_input, route, None, chunks, answer, started_at, "rag_response" if route == "rag" else "chat")
+        log_response_observability(
+            session_id,
+            user_input,
+            route,
+            None,
+            chunks,
+            answer,
+            started_at,
+            get_response_mode(
+                route,
+                None,
+                evidence_sufficient=has_usable_retrieval_evidence(user_input, chunks) if route == "rag" else None,
+            ),
+        )
         return answer
     except Exception as error:
         log_error_observability(session_id, user_input, route, tool_name, chunks, started_at, error)

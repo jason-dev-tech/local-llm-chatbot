@@ -23,6 +23,36 @@ RAG_CONTEXT_TERMS = {
     "sources",
 }
 
+KNOWLEDGE_QUERY_PREFIXES = (
+    "what is ",
+    "who is ",
+    "when is ",
+    "where is ",
+    "why does ",
+    "how does ",
+    "explain ",
+    "define ",
+    "describe ",
+    "tell me about ",
+)
+
+TECHNICAL_QUERY_TERMS = {
+    "api",
+    "endpoint",
+    "protocol",
+    "architecture",
+    "design",
+    "implementation",
+    "workflow",
+    "specification",
+    "documentation",
+    "config",
+    "schema",
+    "model",
+    "algorithm",
+    "policy",
+}
+
 RAG_INTENT_TERMS = {
     "explain",
     "what is",
@@ -58,6 +88,16 @@ class RoutingDecision:
     confidence: float
 
 
+def _looks_like_knowledge_query(normalized: str) -> bool:
+    if not normalized.startswith(KNOWLEDGE_QUERY_PREFIXES):
+        return False
+
+    if normalized in SMALL_TALK_INPUTS:
+        return False
+
+    return True
+
+
 def get_routing_decision(user_input: str) -> RoutingDecision:
     normalized = user_input.strip().lower()
 
@@ -80,6 +120,13 @@ def get_routing_decision(user_input: str) -> RoutingDecision:
             route="rag",
             reason="strong_keyword_match",
             confidence=0.9,
+        )
+
+    if _looks_like_knowledge_query(normalized):
+        return RoutingDecision(
+            route="rag",
+            reason="knowledge_query_match",
+            confidence=0.85,
         )
 
     if any(term in normalized for term in RAG_CONTEXT_TERMS) and normalized.endswith("?"):
