@@ -410,15 +410,30 @@ This monitoring capability is currently terminal-based and backend-side only. It
 
 # ✅ Evaluation
 
-Run the deterministic evaluation scripts from the project root:
+The AI system includes deterministic, dataset-driven evaluation for routing, tools, RAG response validation, and insufficient-evidence guardrails.
+
+Current evaluation coverage includes:
+
+* routing evaluation
+* tool evaluation
+* RAG response validation for citations and sources
+* guardrail evaluation for `insufficient_evidence` cases
+
+These evaluations validate:
+
+* routing correctness
+* response_mode classification
+* guardrail triggering behavior
+* citation and source formatting behavior
+
+Run the evaluation commands from the project root:
 
 ```bash
-python3 evals/run_evals.py
-python3 evals/run_routing_evals.py
-python3 evals/run_tool_evals.py
+python -m evals.run_evals
+python -m evals.run_routing_evals
+python -m evals.run_tool_evals
+python -m evals.run_guardrail_evals
 ```
-
-These scripts validate routing, multi-source retrieval behavior, citation formatting, source labeling, and direct tool execution without relying on model-graded evaluation.
 
 Current verified milestone:
 
@@ -431,6 +446,7 @@ Verified coverage includes:
 * Chatbot evaluation for RAG routing, inline citations, source labels, and multi-source behavior
 * Routing evaluation for direct tool routing, heuristic routing, and LLM-assisted fallback
 * Tool evaluation for summarize, rewrite, and structured extraction behavior
+* Guardrail evaluation for `insufficient_evidence` versus normal RAG responses
 * JSON-aware validation for valid JSON, expected keys, and expected extracted content
 
 ## Monitoring Verification
