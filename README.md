@@ -55,6 +55,13 @@ The current implementation is positioned as an **extensible agent foundation**, 
 * **Intent-aware routing** for knowledge-grounded requests
 * If a query contains explicit file references, retrieval is restricted to those files for more precise and controlled answers
 
+## 🛡 Grounding & Safety
+
+* Evidence-aware backend guardrails are applied to retrieval-backed answers
+* When retrieval does not provide sufficient support, the system returns a concise insufficient-evidence fallback instead of a confident unsupported RAG answer
+* Guardrails rely on lightweight retrieval signals such as rerank score and meaningful query-term overlap rather than a separate scoring service
+* Successful RAG flows keep the existing citation and attribution behavior unchanged
+
 ## 🛠 Tooling Layer
 
 * Registry-based tool abstraction for name-based tool resolution
@@ -103,6 +110,17 @@ The current implementation is positioned as an **extensible agent foundation**, 
 * Automatic file-based backend log generation for real application runs
 * Terminal-based Metrics Aggregation Layer for request, outcome, session, query, and retrieval summaries
 * Current monitoring workflow is backend-side only and is not exposed in the frontend
+
+## 🧾 Response Modes
+
+The backend classifies response events into a small set of explicit modes for observability:
+
+* `chat`
+* `tool`
+* `rag_response`
+* `insufficient_evidence`
+
+These modes are used in backend logs to distinguish normal chat responses, direct tool execution, retrieval-backed responses, and guarded fallback behavior.
 
 ## 🗂 Session Management
 
@@ -335,6 +353,8 @@ python3 -m observability.metrics_summary logs/backend.log
 ```
 
 You can also pass multiple log files or pipe log content into the command.
+
+This command reads backend log output only. It is a terminal-based monitoring utility and is not currently exposed through the frontend.
 
 ### Summary output includes
 
