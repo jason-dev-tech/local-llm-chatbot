@@ -1,0 +1,37 @@
+[
+  {
+    "id": "guard_001",
+    "query": "What is quantum banana memory?",
+    "expected_route": "rag",
+    "expected_response_mode": "insufficient_evidence",
+    "expected_guardrail_type": "insufficient_evidence"
+  },
+  {
+    "id": "guard_002",
+    "query": "What is the API design of the ZX-quantum memory protocol version 9?",
+    "expected_route": "rag",
+    "expected_response_mode": "insufficient_evidence",
+    "expected_guardrail_type": "insufficient_evidence"
+  },
+  {
+    "id": "guard_003",
+    "query": "What does RAG stand for?",
+    "expected_route": "rag",
+    "expected_response_mode": "rag_response",
+    "expected_guardrail_type": null
+  },
+  {
+    "id": "guard_004",
+    "query": "Hello",
+    "expected_route": "chat",
+    "expected_response_mode": "chat",
+    "expected_guardrail_type": null
+  },
+  {
+    "id": "guard_005",
+    "query": "summarize: Retrieval-Augmented Generation improves grounded answers.",
+    "expected_route": "tool",
+    "expected_response_mode": "tool",
+    "expected_guardrail_type": null
+  }
+]
