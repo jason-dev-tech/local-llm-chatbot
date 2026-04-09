@@ -7,6 +7,14 @@ from collections import Counter
 from pathlib import Path
 
 
+RESPONSE_MODE_ORDER = (
+    "chat",
+    "tool",
+    "rag_response",
+    "insufficient_evidence",
+)
+
+
 def _iter_lines(paths: list[str]):
     missing_paths = []
 
@@ -106,6 +114,26 @@ def _format_route_distribution(counter: Counter, total: int) -> list[str]:
     return lines
 
 
+def _format_response_mode_distribution(counter: Counter, total: int) -> list[str]:
+    if total <= 0:
+        return ["- none"]
+
+    lines = []
+
+    for mode in RESPONSE_MODE_ORDER:
+        count = counter.get(mode, 0)
+        percentage = (count / total) * 100
+        lines.append(f"- {mode}: {count} ({percentage:.1f}%)")
+
+    remaining_modes = sorted(mode for mode in counter if mode not in RESPONSE_MODE_ORDER)
+    for mode in remaining_modes:
+        count = counter[mode]
+        percentage = (count / total) * 100
+        lines.append(f"- {mode}: {count} ({percentage:.1f}%)")
+
+    return lines
+
+
 def _collect_response_metrics(response_events: list[dict]) -> dict:
     latencies = [
         float(event["latency_ms"])
@@ -115,6 +143,7 @@ def _collect_response_metrics(response_events: list[dict]) -> dict:
 
     route_counter = Counter()
     route_latencies: dict[str, list[float]] = {}
+    response_mode_counter = Counter()
     tool_counter = Counter()
 
     for event in response_events:
@@ -125,6 +154,12 @@ def _collect_response_metrics(response_events: list[dict]) -> dict:
             latency = event.get("latency_ms")
             if isinstance(latency, (int, float)):
                 route_latencies.setdefault(route, []).append(float(latency))
+
+        response_mode = event.get("response_mode")
+        if isinstance(response_mode, str) and response_mode:
+            response_mode_counter[response_mode] += 1
+        else:
+            response_mode_counter["unknown"] += 1
 
         tool_name = event.get("tool_used")
         if isinstance(tool_name, str) and tool_name:
@@ -137,6 +172,7 @@ def _collect_response_metrics(response_events: list[dict]) -> dict:
         "p95_latency_ms": _percentile(latencies, 0.95),
         "route_distribution": route_counter,
         "route_latencies": route_latencies,
+        "response_mode_distribution": response_mode_counter,
         "tool_usage": tool_counter,
     }
 
@@ -352,6 +388,12 @@ def build_metrics_report(events: list[dict]) -> str:
             "Successful response distribution by effective route",
             *_format_route_distribution(
                 response_metrics["route_distribution"],
+                response_metrics["request_count"],
+            ),
+            "",
+            "Response mode distribution",
+            *_format_response_mode_distribution(
+                response_metrics["response_mode_distribution"],
                 response_metrics["request_count"],
             ),
             "",
