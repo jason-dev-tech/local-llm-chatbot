@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from config import CHROMA_PERSIST_DIR, DB_PATH, KNOWLEDGE_DIR
 from db import init_db, get_all_sessions_with_titles, session_exists, get_session_messages
+from operational.runtime_checks import validate_runtime_config
 from chat_service import (
     create_new_session,
     rename_session,
@@ -22,6 +23,7 @@ from chat_service import (
 LOG_DIR = Path("logs")
 LOG_DIR.mkdir(exist_ok=True)
 BACKEND_LOG_PATH = LOG_DIR / "backend.log"
+STARTUP_LOGGER = logging.getLogger("chatbot.startup")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -70,7 +72,32 @@ class RenameSessionRequest(BaseModel):
 
 @app.on_event("startup")
 def startup_event():
+    config_errors = validate_runtime_config()
+    if config_errors:
+        STARTUP_LOGGER.error(
+            json.dumps(
+                {
+                    "stage": "startup_validation",
+                    "status": "failed",
+                    "errors": config_errors,
+                },
+                ensure_ascii=True,
+                sort_keys=True,
+            )
+        )
+        raise RuntimeError("Backend startup validation failed.")
+
     init_db()
+    STARTUP_LOGGER.info(
+        json.dumps(
+            {
+                "stage": "startup_validation",
+                "status": "ok",
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+        )
+    )
 
 
 @app.get("/")
