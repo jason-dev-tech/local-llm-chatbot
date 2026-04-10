@@ -1,12 +1,13 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useState } from "react";
+import type { RefObject } from "react";
 import type { MessageItem } from "../types";
 
 type MessageListProps = {
   messages: MessageItem[];
   isLoadingMessages: boolean;
-  messagesEndRef: React.RefObject<HTMLDivElement | null>;
+  messagesEndRef: RefObject<HTMLDivElement | null>;
 };
 
 function CodeBlock({ children }: { children: string }) {

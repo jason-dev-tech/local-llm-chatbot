@@ -305,6 +305,50 @@ If you see `ModuleNotFoundError` (for example `uvicorn` or `chromadb`), install 
 pip install -r requirements.txt
 ```
 
+## Docker Deployment
+
+For local Docker deployment, the local model server must already be running on the host machine, such as LM Studio or another OpenAI-compatible endpoint.
+
+Required environment variables for the backend container:
+
+* `OPENAI_API_KEY`
+* `MODEL_NAME`
+* `EMBEDDING_MODEL`
+* `DB_PATH`
+* `KNOWLEDGE_DIR`
+* `CHROMA_PERSIST_DIR`
+
+Optional tuning parameters for chunking behavior:
+
+* `CHUNK_SIZE`
+* `CHUNK_OVERLAP`
+
+The Docker-safe backend model endpoint is:
+
+```text
+OPENAI_BASE_URL=http://host.docker.internal:1234/v1
+```
+
+The backend container still listens on port `8000` internally, but the included Compose setup maps it to host port `8001` to avoid conflicts with an already-running local backend.
+
+Start the Docker deployment from the project root:
+
+```bash
+docker compose up --build
+```
+
+Example local access URLs:
+
+* Frontend: `http://localhost:3000`
+* Backend API: `http://127.0.0.1:8001`
+* Backend health check: `http://127.0.0.1:8001/health`
+
+The Compose setup mounts these local directories into the backend container for persistence and retrieval data access:
+
+* `data/`
+* `logs/`
+* `knowledge/`
+
 ## Backend Self-Check
 
 For a lightweight backend smoke check covering runtime configuration, key imports, database access, and local directory readiness, run:
