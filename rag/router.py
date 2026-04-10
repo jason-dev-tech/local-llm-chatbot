@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import re
 
 
 RAG_STRONG_TRIGGERS = {
@@ -66,6 +67,29 @@ RAG_INTENT_TERMS = {
     "summarize",
 }
 
+ENTITY_LOOKUP_TERMS = {
+    "status",
+    "company",
+    "customer",
+    "person",
+    "vendor",
+    "employee",
+    "account",
+    "record",
+}
+
+FACT_LOOKUP_PREFIXES = (
+    "which ",
+    "what is the status of ",
+    "what is the name of ",
+    "what is the location of ",
+    "what is the address of ",
+    "who is ",
+    "where is ",
+)
+
+SHORT_ENTITY_PATTERN = re.compile(r"^[a-z0-9][a-z0-9 .&'_-]{1,59}$")
+
 
 SMALL_TALK_INPUTS = {
     "hi",
@@ -98,6 +122,24 @@ def _looks_like_knowledge_query(normalized: str) -> bool:
     return True
 
 
+def _looks_like_entity_lookup_query(normalized: str) -> bool:
+    if normalized in SMALL_TALK_INPUTS or len(normalized) < 3:
+        return False
+
+    if normalized.endswith("?"):
+        if normalized.startswith(FACT_LOOKUP_PREFIXES):
+            return True
+        if any(term in normalized for term in ENTITY_LOOKUP_TERMS):
+            return True
+
+    if SHORT_ENTITY_PATTERN.fullmatch(normalized):
+        token_count = len(normalized.split())
+        if 1 <= token_count <= 4 and any(character.isalpha() for character in normalized):
+            return True
+
+    return False
+
+
 def get_routing_decision(user_input: str) -> RoutingDecision:
     normalized = user_input.strip().lower()
 
@@ -127,6 +169,13 @@ def get_routing_decision(user_input: str) -> RoutingDecision:
             route="rag",
             reason="knowledge_query_match",
             confidence=0.85,
+        )
+
+    if _looks_like_entity_lookup_query(normalized):
+        return RoutingDecision(
+            route="rag",
+            reason="entity_lookup_match",
+            confidence=0.82,
         )
 
     if any(term in normalized for term in RAG_CONTEXT_TERMS) and normalized.endswith("?"):
