@@ -414,6 +414,7 @@ This monitoring capability is currently terminal-based and backend-side only. It
 
 * summarize: Retrieval-Augmented Generation improves grounded answers.
 * rewrite: This   sentence   should be cleaner.
+* Summarize this text and then rewrite it more clearly: Retrieval-Augmented Generation combines retrieval with generation to improve grounding and answer quality.
 * extract entities: Compare RAG in LangChain with Chroma and FastAPI using sample.txt and faq.txt
 
 ## Retrieval-Summary Queries
