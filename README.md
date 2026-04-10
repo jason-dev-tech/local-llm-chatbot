@@ -22,6 +22,44 @@ The current implementation is positioned as an **extensible agent foundation**, 
 
 ---
 
+# 🧱 Architecture Overview
+
+The implemented system is a small full-stack AI application with a clear split between UI, API orchestration, local persistence, retrieval infrastructure, and runtime validation.
+
+* **React frontend** provides the chat UI, streaming response rendering, session management, and browser-side API calls.
+* **FastAPI backend** handles routing, chat orchestration, RAG execution, tool execution, citation formatting, and observability events.
+* **SQLite** stores sessions and message history for the current multi-session chat experience.
+* **Chroma** stores embedded document chunks for retrieval over the local knowledge base.
+* **Local or OpenAI-compatible model endpoint** supplies both chat generation and embeddings through the configured API base URL.
+* **Evaluation and operational checks** provide deterministic eval scripts, backend self-checks, and readiness validation for runtime dependencies.
+
+The architecture is intentionally modular rather than agentic-by-default: retrieval, tools, routing, response formatting, and operational validation are separated into distinct backend layers.
+
+---
+
+# 🔄 Request Flow
+
+## Normal chat
+
+* The frontend sends a chat request to the FastAPI backend.
+* The backend checks for explicit tool intent and retrieval-oriented routing.
+* If the request is treated as normal chat, the backend sends the prompt to the configured chat model endpoint and returns the final response.
+
+## RAG requests
+
+* The backend routes knowledge-oriented queries into the retrieval path.
+* The query is embedded, matched against Chroma, reranked, and converted into prompt context.
+* The backend generates the answer from retrieved context, then applies inline citations and source attribution.
+* If retrieval evidence is too weak, the backend returns the existing insufficient-evidence response instead of a confident unsupported answer.
+
+## Tool-routed requests
+
+* Explicit summarize, rewrite, or extraction requests are routed into the tool layer first.
+* Tools run in isolated backend code paths so they do not interfere with RAG citation formatting.
+* For supported cases, deterministic summarize-then-rewrite chaining remains available as a lightweight controlled composition path.
+
+---
+
 # 🚀 Core Capabilities
 
 ## 💬 Chat Experience
@@ -304,6 +342,22 @@ If you see `ModuleNotFoundError` (for example `uvicorn` or `chromadb`), install 
 ```bash
 pip install -r requirements.txt
 ```
+
+## Deployment / Runtime Model
+
+The current system supports two practical runtime modes:
+
+* **Local development**: run FastAPI and the Vite frontend directly, with the backend calling a locally running OpenAI-compatible model endpoint.
+* **Docker deployment**: run backend and frontend containers locally with mounted `data/`, `logs/`, and `knowledge/` directories.
+
+In both modes, the application still depends on an external chat + embedding provider. That provider may be LM Studio on the same machine, or another OpenAI-compatible hosted endpoint.
+
+Operationally, the runtime model distinguishes:
+
+* **Liveness** via `GET /health`: the backend process is up.
+* **Readiness** via `GET /ready`: the backend is usable, including database, storage, chat endpoint, and embedding endpoint availability.
+
+For Docker, the frontend API base URL is runtime-configurable through `runtime-config.js`, so the browser-facing backend URL can be changed at container startup without rebuilding the frontend image.
 
 ## Docker Deployment
 
