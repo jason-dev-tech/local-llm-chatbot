@@ -257,6 +257,25 @@ def has_usable_retrieval_evidence(user_input, chunks):
 
 
 def format_source_label(source, metadata):
+    source_type = metadata.get("source_type")
+    if isinstance(source_type, str) and source_type.startswith("json_"):
+        filename = metadata.get("filename")
+        record_title = metadata.get("record_title") or metadata.get("title")
+
+        if isinstance(filename, str) and filename.strip():
+            base_label = filename.strip()
+        elif isinstance(source, str) and source.strip():
+            normalized_source = source.strip()
+            file_name = os.path.basename(normalized_source)
+            base_label = file_name or normalized_source
+        else:
+            base_label = "Unknown"
+
+        if isinstance(record_title, str) and record_title.strip():
+            return f"{base_label} ({record_title.strip()})"
+
+        return base_label
+
     preferred_label = (
         metadata.get("title")
         or metadata.get("name")
