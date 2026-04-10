@@ -315,6 +315,46 @@ python -m operational.self_check
 
 This is intended for local and container verification and exits with a non-zero status if the backend runtime is not ready.
 
+## Document Ingestion and Verification
+
+The local knowledge pipeline currently supports these file types under `knowledge/`:
+
+* `.txt`
+* `.md`
+* `.pdf`
+
+To ingest local knowledge files into the vector store, run:
+
+```bash
+python -m rag.ingest
+```
+
+### Verification flow
+
+1. Add or update files in `knowledge/`
+2. Run `python -m rag.ingest`
+3. Ask knowledge-based queries and verify citations and source attribution in the response
+
+### Example verification queries
+
+PDF-oriented query:
+
+```text
+What does the AI knowledge guide say about chunking?
+```
+
+Multi-document query:
+
+```text
+What do the knowledge files say about RAG, citations, and metadata?
+```
+
+### Expected verification signals
+
+* retrieval-backed answers should include inline citations when supported by retrieved knowledge
+* the final response should show source attribution for the retrieved documents
+* multi-document queries may show more than one source in the attribution block when relevant
+
 ## Backend Observability
 
 The backend writes structured observability events during real application runs. These logs are intended for terminal-side debugging and local monitoring, and they are not currently surfaced in the frontend UI.
