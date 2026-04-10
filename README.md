@@ -473,6 +473,7 @@ Current evaluation coverage includes:
 
 * routing evaluation
 * tool evaluation
+* retrieval evaluation
 * RAG response validation for citations and sources
 * guardrail evaluation for `insufficient_evidence` cases
 * answer quality evaluation for groundedness, hallucination avoidance, and `response_mode`
@@ -490,6 +491,7 @@ Run the evaluation commands from the project root:
 
 ```bash
 python -m evals.run_evals
+python -m evals.run_retrieval_evals
 python -m evals.run_routing_evals
 python -m evals.run_tool_evals
 python -m evals.run_guardrail_evals

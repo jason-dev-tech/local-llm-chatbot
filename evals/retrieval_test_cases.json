@@ -1,0 +1,51 @@
+[
+  {
+    "id": "retrieval_001",
+    "query": "What does RAG stand for?",
+    "top_k": 3,
+    "expected_sources": [
+      "faq.txt",
+      "rag_notes.txt"
+    ],
+    "expected_answer_contains": [
+      "Retrieval-Augmented Generation"
+    ]
+  },
+  {
+    "id": "retrieval_002",
+    "query": "Which file talks about metadata and source attribution?",
+    "top_k": 3,
+    "expected_sources": [
+      "faq_reference.txt",
+      "faq.txt"
+    ],
+    "expected_answer_contains": [
+      "metadata",
+      "source"
+    ]
+  },
+  {
+    "id": "retrieval_003",
+    "query": "What does the AI knowledge guide say about chunking?",
+    "top_k": 3,
+    "expected_sources": [
+      "ai_knowledge_guide.pdf",
+      "manual.txt"
+    ],
+    "expected_answer_contains": [
+      "chunk"
+    ]
+  },
+  {
+    "id": "retrieval_004",
+    "query": "What do the knowledge files say about citations?",
+    "top_k": 3,
+    "expected_sources": [
+      "faq_reference.txt",
+      "faq.txt"
+    ],
+    "expected_answer_contains": [
+      "citation"
+    ]
+  }
+]
