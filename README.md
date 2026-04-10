@@ -351,6 +351,7 @@ The frontend API base URL is now runtime-configurable. In Docker, the frontend c
 * `GET /ready` is a stricter readiness endpoint that now includes database, local storage, chat endpoint readiness, and embedding endpoint readiness.
 * The backend depends on an external OpenAI-compatible provider for both chat generation and embeddings, so a running API process alone is not enough to consider the system ready.
 * If the configured chat model or embedding model is unreachable or unusable, `/ready` returns `503` even when `/health` still returns `200`.
+* In Docker Compose, the backend container healthcheck now uses `GET /ready`, so the container can be running but still report as unhealthy when the external model provider is unavailable.
 
 The Compose setup mounts these local directories into the backend container for persistence and retrieval data access:
 
