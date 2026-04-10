@@ -17,6 +17,7 @@ EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-nomic-embed-text-
 KNOWLEDGE_DIR = os.getenv("KNOWLEDGE_DIR", "knowledge")
 CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", "data/chroma_db")
 RAG_COLLECTION_NAME = os.getenv("RAG_COLLECTION_NAME", "knowledge_base")
+JSON_API_MANIFEST_PATH = os.getenv("JSON_API_MANIFEST_PATH", "knowledge/api_sources.json")
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "500"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "100"))
 

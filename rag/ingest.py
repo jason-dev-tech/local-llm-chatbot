@@ -37,6 +37,41 @@ def run_ingestion() -> None:
                     "filename": document["filename"],
                     "chunk_index": index,
                     **(
+                        {"title": document["title"]}
+                        if "title" in document
+                        else {}
+                    ),
+                    **(
+                        {"source_type": document["source_type"]}
+                        if "source_type" in document
+                        else {}
+                    ),
+                    **(
+                        {"record_id": document["record_id"]}
+                        if "record_id" in document
+                        else {}
+                    ),
+                    **(
+                        {"record_title": document["record_title"]}
+                        if "record_title" in document
+                        else {}
+                    ),
+                    **(
+                        {"record_index": document["record_index"]}
+                        if "record_index" in document
+                        else {}
+                    ),
+                    **(
+                        {"record_type": document["record_type"]}
+                        if "record_type" in document
+                        else {}
+                    ),
+                    **(
+                        {"endpoint_url": document["endpoint_url"]}
+                        if "endpoint_url" in document
+                        else {}
+                    ),
+                    **(
                         {"page_number": document["page_number"]}
                         if "page_number" in document
                         else {}

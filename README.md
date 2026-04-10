@@ -432,11 +432,41 @@ The local knowledge pipeline currently supports these file types under `knowledg
 * `.txt`
 * `.md`
 * `.pdf`
+* `.json`
 
 To ingest local knowledge files into the vector store, run:
 
 ```bash
 python -m rag.ingest
+```
+
+### Structured JSON ingestion
+
+The ingestion pipeline also supports lightweight structured data ingestion without changing the retrieval architecture.
+
+JSON files:
+
+* Place `.json` files under `knowledge/`
+* Root arrays are treated as multiple records
+* Root objects use top-level `records`, `items`, or `results` arrays when present; otherwise the object is treated as a single record
+* Records are normalized into deterministic line-oriented text before chunking and embedding
+
+JSON API ingestion:
+
+* Add sources to the JSON API manifest at `knowledge/api_sources.json`
+* Run the same ingestion command: `python -m rag.ingest`
+* Each listed endpoint is fetched, normalized into record text, and ingested through the existing chunking and embedding flow
+
+Example manifest:
+
+```json
+[
+  {
+    "name": "sample_api",
+    "url": "http://localhost:9000/data.json",
+    "record_type": "sample_record"
+  }
+]
 ```
 
 ### Verification flow
