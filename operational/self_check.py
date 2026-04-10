@@ -19,6 +19,17 @@ def main() -> None:
     for name, ok in result["checks"].items():
         print(f"- {name}: {'PASS' if ok else 'FAIL'}")
 
+    check_details = result.get("check_details", {})
+    provider_failures = [
+        (name, detail)
+        for name, detail in check_details.items()
+        if detail
+    ]
+    if provider_failures:
+        print("Probe details:")
+        for name, detail in provider_failures:
+            print(f"- {name}: {detail}")
+
     sys.exit(0 if result["ok"] else 1)
 
 

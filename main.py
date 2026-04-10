@@ -1,7 +1,6 @@
 import json
 import logging
 from pathlib import Path
-import sqlite3
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,9 +8,8 @@ from fastapi.responses import JSONResponse
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from config import CHROMA_PERSIST_DIR, DB_PATH, KNOWLEDGE_DIR
 from db import init_db, get_all_sessions_with_titles, session_exists, get_session_messages
-from operational.runtime_checks import validate_runtime_config
+from operational.runtime_checks import run_backend_smoke_checks, validate_runtime_config
 from chat_service import (
     create_new_session,
     rename_session,
@@ -112,30 +110,17 @@ def health():
 
 @app.get("/ready")
 def ready():
-    checks = {
-        "database": False,
-        "knowledge_dir": Path(KNOWLEDGE_DIR).exists(),
-        "chroma_dir": False,
-    }
-
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        conn.execute("SELECT 1")
-        conn.close()
-        checks["database"] = True
-    except sqlite3.Error:
-        checks["database"] = False
-
-    try:
-        Path(CHROMA_PERSIST_DIR).mkdir(parents=True, exist_ok=True)
-        checks["chroma_dir"] = Path(CHROMA_PERSIST_DIR).exists()
-    except OSError:
-        checks["chroma_dir"] = False
-
-    is_ready = all(checks.values())
+    result = run_backend_smoke_checks()
+    is_ready = result["ok"]
     payload = {
         "status": "ready" if is_ready else "not_ready",
-        "checks": checks,
+        "checks": result["checks"],
+        "config_errors": result["config_errors"],
+        "check_details": {
+            name: detail
+            for name, detail in result.get("check_details", {}).items()
+            if detail
+        },
     }
     if is_ready:
         return payload

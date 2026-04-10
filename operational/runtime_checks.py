@@ -24,6 +24,7 @@ REQUIRED_IMPORTS = (
     "langchain_chroma",
     "pypdf",
 )
+READINESS_PROBE_TIMEOUT_SECONDS = 10.0
 
 
 def validate_runtime_config() -> list[str]:
@@ -59,6 +60,76 @@ def validate_runtime_config() -> list[str]:
     return errors
 
 
+def _build_openai_client():
+    from openai import OpenAI
+
+    return OpenAI(
+        base_url=BASE_URL,
+        api_key=API_KEY,
+        timeout=READINESS_PROBE_TIMEOUT_SECONDS,
+    )
+
+
+def _probe_chat_model_readiness() -> tuple[bool, str | None]:
+    try:
+        response = _build_openai_client().chat.completions.create(
+            model=MODEL_NAME,
+            messages=[{"role": "user", "content": "ping"}],
+            max_tokens=1,
+        )
+    except Exception as error:
+        return False, f"{type(error).__name__}: {error}"
+
+    if response.choices:
+        return True, None
+
+    return False, "Chat completion probe returned no choices."
+
+
+def _probe_embedding_model_readiness() -> tuple[bool, str | None]:
+    try:
+        response = _build_openai_client().embeddings.create(
+            model=EMBEDDING_MODEL,
+            input="ping",
+        )
+    except Exception as error:
+        return False, f"{type(error).__name__}: {error}"
+
+    if response.data and response.data[0].embedding:
+        return True, None
+
+    return False, "Embedding probe returned no embedding vector."
+
+
+def run_provider_readiness_checks() -> dict:
+    config_errors = validate_runtime_config()
+    if config_errors:
+        return {
+            "checks": {
+                "chat_endpoint_ready": False,
+                "embedding_endpoint_ready": False,
+            },
+            "details": {
+                "chat_endpoint_ready": "Skipped: configuration is invalid.",
+                "embedding_endpoint_ready": "Skipped: configuration is invalid.",
+            },
+        }
+
+    chat_ok, chat_detail = _probe_chat_model_readiness()
+    embedding_ok, embedding_detail = _probe_embedding_model_readiness()
+
+    return {
+        "checks": {
+            "chat_endpoint_ready": chat_ok,
+            "embedding_endpoint_ready": embedding_ok,
+        },
+        "details": {
+            "chat_endpoint_ready": chat_detail,
+            "embedding_endpoint_ready": embedding_detail,
+        },
+    }
+
+
 def run_backend_smoke_checks() -> dict:
     checks = {}
     config_errors = validate_runtime_config()
@@ -88,10 +159,14 @@ def run_backend_smoke_checks() -> dict:
     except OSError:
         checks["chroma_dir"] = False
 
+    provider_result = run_provider_readiness_checks()
+    checks.update(provider_result["checks"])
+
     overall_ok = all(checks.values()) and not config_errors
 
     return {
         "ok": overall_ok,
         "checks": checks,
+        "check_details": provider_result["details"],
         "config_errors": config_errors,
     }

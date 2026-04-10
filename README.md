@@ -343,6 +343,13 @@ Example local access URLs:
 * Backend API: `http://127.0.0.1:8001`
 * Backend health check: `http://127.0.0.1:8001/health`
 
+### Health and readiness
+
+* `GET /health` is a lightweight liveness-style endpoint that reports whether the backend process is up.
+* `GET /ready` is a stricter readiness endpoint that now includes database, local storage, chat endpoint readiness, and embedding endpoint readiness.
+* The backend depends on an external OpenAI-compatible provider for both chat generation and embeddings, so a running API process alone is not enough to consider the system ready.
+* If the configured chat model or embedding model is unreachable or unusable, `/ready` returns `503` even when `/health` still returns `200`.
+
 The Compose setup mounts these local directories into the backend container for persistence and retrieval data access:
 
 * `data/`
@@ -358,6 +365,8 @@ python -m operational.self_check
 ```
 
 This is intended for local and container verification and exits with a non-zero status if the backend runtime is not ready.
+
+The self-check now includes lightweight live probes against the configured chat model and embedding model, so it can fail when the backend configuration is valid but the external provider is not actually usable.
 
 ## Document Ingestion and Verification
 
