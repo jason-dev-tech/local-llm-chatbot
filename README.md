@@ -68,6 +68,7 @@ The current implementation is positioned as an **extensible agent foundation**, 
 * `summarize_text` tool for direct text summarization
 * `rewrite_text` tool for controlled rewriting that preserves meaning while improving clarity
 * `extract_entities` tool for structured query analysis with JSON output
+* Deterministic multi-step tool chaining for a lightweight agent-style summarize-then-rewrite flow
 * Deterministic summarize behavior for explicit direct-input requests
 * Controlled rewrite behavior with whitespace normalization, conservative prompting, and fallback to cleaned text
 * Structured extraction output designed for downstream retrieval, routing, and system decisions
@@ -100,7 +101,7 @@ The current implementation is positioned as an **extensible agent foundation**, 
 
 * Deterministic chatbot evals for routing, citations, source labels, and multi-source behavior
 * Deterministic routing evals for heuristic, LLM, and effective route outcomes
-* Behavioral tool evals for summarize / rewrite execution
+* Behavioral tool evals for summarize / rewrite execution, including deterministic summarize-then-rewrite chaining
 * JSON-aware tool evals for structured extraction output
 * Frontend validation completed for summarize, rewrite, normal chat, and RAG flows
 
@@ -443,6 +444,7 @@ These evaluations validate:
 * guardrail triggering behavior
 * citation and source formatting behavior
 * groundedness and unsupported-claim avoidance using simple `must_contain` / `must_not_contain` checks
+* deterministic summarize-then-rewrite tool chaining behavior
 
 Run the evaluation commands from the project root:
 
