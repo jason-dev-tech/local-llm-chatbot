@@ -1,0 +1,33 @@
+[
+  {
+    "id": "quality_001",
+    "query": "What does RAG stand for?",
+    "expected_response_mode": "rag_response",
+    "must_contain": [
+      "Retrieval-Augmented Generation"
+    ],
+    "must_not_contain": [
+      "I couldn't find enough relevant evidence"
+    ]
+  },
+  {
+    "id": "quality_002",
+    "query": "What is quantum banana memory?",
+    "expected_response_mode": "insufficient_evidence",
+    "must_contain": [
+      "I couldn't find enough relevant evidence in the knowledge base to answer that confidently."
+    ],
+    "must_not_contain": [
+      "Sources:"
+    ]
+  },
+  {
+    "id": "quality_003",
+    "query": "Hello",
+    "expected_response_mode": "chat",
+    "must_not_contain": [
+      "Sources:",
+      "I couldn't find enough relevant evidence"
+    ]
+  }
+]
