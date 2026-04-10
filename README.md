@@ -343,6 +343,8 @@ Example local access URLs:
 * Backend API: `http://127.0.0.1:8001`
 * Backend health check: `http://127.0.0.1:8001/health`
 
+The frontend API base URL is now runtime-configurable. In Docker, the frontend container writes a small `runtime-config.js` file at startup from `API_BASE_URL`, so you can change the browser-facing backend URL without rebuilding the frontend image.
+
 ### Health and readiness
 
 * `GET /health` is a lightweight liveness-style endpoint that reports whether the backend process is up.

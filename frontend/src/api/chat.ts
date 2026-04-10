@@ -1,7 +1,17 @@
 import type { SessionItem, MessageItem } from "../types";
 
+declare global {
+  interface Window {
+    __APP_CONFIG__?: {
+      apiBaseUrl?: string;
+    };
+  }
+}
+
 const API_BASE =
-  import.meta.env.VITE_API_BASE_URL?.trim() || "http://127.0.0.1:8000";
+  window.__APP_CONFIG__?.apiBaseUrl?.trim() ||
+  import.meta.env.VITE_API_BASE_URL?.trim() ||
+  "http://127.0.0.1:8000";
 
 /**
  * Get all sessions
