@@ -259,9 +259,14 @@ local-llm-chatbot/
 ├── evals/
 │   ├── run_evals.py
 │   ├── run_routing_evals.py
-│   └── run_tool_evals.py
+│   ├── run_tool_evals.py
+│   ├── run_guardrail_evals.py
+│   └── run_answer_quality_evals.py
 ├── observability/
 │   └── metrics_summary.py
+├── operational/
+│   ├── runtime_checks.py
+│   └── self_check.py
 ├── chat_service.py
 ├── llm.py
 ├── frontend/
@@ -298,6 +303,16 @@ If you see `ModuleNotFoundError` (for example `uvicorn` or `chromadb`), install 
 ```bash
 pip install -r requirements.txt
 ```
+
+## Backend Self-Check
+
+For a lightweight backend smoke check covering runtime configuration, key imports, database access, and local directory readiness, run:
+
+```bash
+python -m operational.self_check
+```
+
+This is intended for local and container verification and exits with a non-zero status if the backend runtime is not ready.
 
 ## Backend Observability
 
@@ -410,7 +425,7 @@ This monitoring capability is currently terminal-based and backend-side only. It
 
 # ✅ Evaluation
 
-The AI system includes deterministic, dataset-driven evaluation for routing, tools, RAG response validation, and insufficient-evidence guardrails.
+The AI system includes deterministic, dataset-driven evaluation for routing, tools, RAG response validation, insufficient-evidence guardrails, and basic answer quality checks over real backend responses.
 
 Current evaluation coverage includes:
 
@@ -418,6 +433,7 @@ Current evaluation coverage includes:
 * tool evaluation
 * RAG response validation for citations and sources
 * guardrail evaluation for `insufficient_evidence` cases
+* answer quality evaluation for groundedness, hallucination avoidance, and `response_mode`
 
 These evaluations validate:
 
@@ -425,6 +441,7 @@ These evaluations validate:
 * response_mode classification
 * guardrail triggering behavior
 * citation and source formatting behavior
+* groundedness and unsupported-claim avoidance using simple `must_contain` / `must_not_contain` checks
 
 Run the evaluation commands from the project root:
 
@@ -433,6 +450,7 @@ python -m evals.run_evals
 python -m evals.run_routing_evals
 python -m evals.run_tool_evals
 python -m evals.run_guardrail_evals
+python -m evals.run_answer_quality_evals
 ```
 
 Current verified milestone:
@@ -447,6 +465,7 @@ Verified coverage includes:
 * Routing evaluation for direct tool routing, heuristic routing, and LLM-assisted fallback
 * Tool evaluation for summarize, rewrite, and structured extraction behavior
 * Guardrail evaluation for `insufficient_evidence` versus normal RAG responses
+* Answer quality evaluation for real backend outputs across `rag_response`, `insufficient_evidence`, and `chat`
 * JSON-aware validation for valid JSON, expected keys, and expected extracted content
 
 ## Monitoring Verification
