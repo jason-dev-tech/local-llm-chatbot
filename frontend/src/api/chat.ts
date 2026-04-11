@@ -8,6 +8,11 @@ declare global {
   }
 }
 
+export type ReadinessResult = {
+  isReady: boolean;
+  notReadyReason: string | null;
+};
+
 const API_BASE =
   window.__APP_CONFIG__?.apiBaseUrl?.trim() ||
   import.meta.env.VITE_API_BASE_URL?.trim() ||
@@ -57,9 +62,64 @@ export async function fetchMessages(sessionId: string): Promise<MessageItem[]> {
 /**
  * Backend readiness check
  */
-export async function fetchReadiness(): Promise<boolean> {
-  const res = await fetch(`${API_BASE}/ready`);
-  return res.ok;
+export async function fetchReadiness(): Promise<ReadinessResult> {
+  try {
+    const res = await fetch(`${API_BASE}/ready`);
+    let payload: unknown = null;
+
+    try {
+      payload = await res.json();
+    } catch {
+      payload = null;
+    }
+
+    const checks =
+      payload && typeof payload === "object" && "checks" in payload
+        ? (payload as { checks?: Record<string, unknown> }).checks
+        : undefined;
+    const status =
+      payload && typeof payload === "object" && "status" in payload
+        ? (payload as { status?: unknown }).status
+        : undefined;
+    const payloadReady =
+      status === "ready"
+      || (
+        checks !== undefined
+        && checks !== null
+        && Object.values(checks).every((value) => value === true)
+      );
+
+    if (payloadReady) {
+      return {
+        isReady: true,
+        notReadyReason: null,
+      };
+    }
+
+    if (checks?.chat_endpoint_ready === false) {
+      return {
+        isReady: false,
+        notReadyReason: "Model service is unavailable.",
+      };
+    }
+
+    if (checks?.embedding_endpoint_ready === false) {
+      return {
+        isReady: false,
+        notReadyReason: "Knowledge features are unavailable.",
+      };
+    }
+
+    return {
+      isReady: false,
+      notReadyReason: "Some AI features are unavailable.",
+    };
+  } catch {
+    return {
+      isReady: false,
+      notReadyReason: "Backend service is unavailable.",
+    };
+  }
 }
 
 /**

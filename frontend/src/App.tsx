@@ -27,6 +27,7 @@ function App() {
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [isSystemReady, setIsSystemReady] = useState<boolean | null>(null);
+  const [systemNotReadyReason, setSystemNotReadyReason] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -94,13 +95,17 @@ function App() {
     }
   }
 
-  async function checkSystemReadiness() {
+  async function checkSystemReadiness(): Promise<boolean> {
     try {
-      const ready = await fetchReadiness();
-      setIsSystemReady(ready);
+      const readiness = await fetchReadiness();
+      setIsSystemReady(readiness.isReady);
+      setSystemNotReadyReason(readiness.notReadyReason);
+      return readiness.isReady;
     } catch (error) {
       console.error(error);
       setIsSystemReady(false);
+      setSystemNotReadyReason("Backend service is unavailable.");
+      return false;
     }
   }
 
@@ -212,6 +217,10 @@ function App() {
       return;
     }
 
+    const isReady = await checkSystemReadiness();
+    if (!isReady) {
+      return;
+    }
     setErrorMessage("");
 
     const activeSessionId = currentSessionId;
@@ -430,7 +439,7 @@ function App() {
               </div>
               {!isSystemReady && (
                 <div className="system-status-detail">
-                  Some AI features may be unavailable.
+                  {systemNotReadyReason || "Some AI features are unavailable."}
                 </div>
               )}
             </div>
