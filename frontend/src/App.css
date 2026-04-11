@@ -184,6 +184,15 @@ button {
   color: #6b7280;
 }
 
+.app-error-banner {
+  margin: 12px 20px 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 14px;
+}
+
 .message-list {
   flex: 1;
   overflow-y: auto;

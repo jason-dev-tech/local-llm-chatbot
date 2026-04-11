@@ -52,6 +52,27 @@ function App() {
     scrollToBottom();
   }, [messages, isSending]);
 
+  function classifyErrorMessage(rawMessage: string | null | undefined): string {
+    const normalized = (rawMessage || "").toLowerCase();
+
+    if (
+      normalized.includes("relevant evidence")
+      || normalized.includes("knowledge base")
+      || normalized.includes("provided context")
+    ) {
+      return "No relevant information found in the knowledge base.";
+    }
+
+    if (
+      normalized.includes("failed to fetch")
+      || normalized.includes("network")
+    ) {
+      return "Network issue. Please try again.";
+    }
+
+    return "Model is currently unavailable.";
+  }
+
   async function loadSessions() {
     setIsLoadingSessions(true);
     setErrorMessage("");
@@ -299,7 +320,7 @@ function App() {
         },
         (streamErrorMessage) => {
           console.error(streamErrorMessage);
-          setErrorMessage(streamErrorMessage || "Streaming failed.");
+          setErrorMessage(classifyErrorMessage(streamErrorMessage || "Streaming failed."));
 
           setMessages((prev) => {
             const updated = [...prev];
@@ -317,7 +338,14 @@ function App() {
       );
     } catch (error) {
       console.error(error);
-      setErrorMessage("Failed to send the message.");
+      const rawMessage = error instanceof Error ? error.message : "Failed to send the message.";
+      setErrorMessage(
+        rawMessage.toLowerCase().includes("relevant evidence")
+          || rawMessage.toLowerCase().includes("knowledge base")
+          || rawMessage.toLowerCase().includes("provided context")
+          ? classifyErrorMessage(rawMessage)
+          : "Network issue. Please try again.",
+      );
 
       setMessages((prev) => {
         const updated = [...prev];
@@ -410,16 +438,7 @@ function App() {
         </div>
 
         {errorMessage ? (
-          <div
-            style={{
-              margin: "12px 20px 0",
-              padding: "10px 12px",
-              borderRadius: "8px",
-              background: "#fee2e2",
-              color: "#991b1b",
-              fontSize: "14px",
-            }}
-          >
+          <div className="app-error-banner">
             {errorMessage}
           </div>
         ) : null}
