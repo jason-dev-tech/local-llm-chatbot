@@ -440,6 +440,16 @@ To ingest local knowledge files into the vector store, run:
 python -m rag.ingest
 ```
 
+## Frontend Transparency (AI Explainability)
+
+The frontend includes a lightweight transparency layer that communicates how each assistant response is generated:
+
+- **Answer based on sources** - strongly grounded in retrieved knowledge with inline citations
+- **Using retrieved information** - informed by retrieved context but without strong citation signals
+- **Limited supporting information** - indicates insufficient evidence in the knowledge base
+
+This improves user trust and helps communicate the reliability and limitations of AI responses in a production-style system.
+
 ### Structured JSON ingestion
 
 The ingestion pipeline also supports lightweight structured data ingestion without changing the retrieval architecture.
