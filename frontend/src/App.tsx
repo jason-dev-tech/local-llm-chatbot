@@ -21,6 +21,7 @@ function App() {
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [retryingAssistantIndex, setRetryingAssistantIndex] = useState<number | null>(null);
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -160,10 +161,16 @@ function App() {
     }
   }
 
-  async function handleSendMessage(event: FormEvent) {
-    event.preventDefault();
-
-    const trimmedInput = input.trim();
+  async function sendMessageWithStreaming(
+    messageText: string,
+    options?: {
+      assistantIndex?: number;
+      appendUserMessage?: boolean;
+      clearInput?: boolean;
+      refreshMessagesOnDone?: boolean;
+    },
+  ) {
+    const trimmedInput = messageText.trim();
     if (!trimmedInput || !currentSessionId || isSending) {
       return;
     }
@@ -171,6 +178,9 @@ function App() {
     setErrorMessage("");
 
     const activeSessionId = currentSessionId;
+    const appendUserMessage = options?.appendUserMessage ?? true;
+    const clearInput = options?.clearInput ?? true;
+    const refreshMessagesOnDone = options?.refreshMessagesOnDone ?? true;
 
     const userMessage: MessageItem = {
       role: "user",
@@ -182,8 +192,33 @@ function App() {
       content: "Thinking...",
     };
 
-    setMessages((prev) => [...prev, userMessage, assistantPlaceholder]);
-    setInput("");
+    let targetAssistantIndex = options?.assistantIndex ?? -1;
+
+    setMessages((prev) => {
+      if (appendUserMessage) {
+        targetAssistantIndex = prev.length + 1;
+        return [...prev, userMessage, assistantPlaceholder];
+      }
+
+      if (
+        targetAssistantIndex >= 0
+        && targetAssistantIndex < prev.length
+        && prev[targetAssistantIndex]?.role === "assistant"
+      ) {
+        const updated = [...prev];
+        updated[targetAssistantIndex] = {
+          ...updated[targetAssistantIndex],
+          content: "Thinking...",
+        };
+        return updated;
+      }
+
+      return prev;
+    });
+
+    if (clearInput) {
+      setInput("");
+    }
     setIsSending(true);
 
     try {
@@ -197,17 +232,16 @@ function App() {
 
           setMessages((prev) => {
             const updated = [...prev];
-            const lastIndex = updated.length - 1;
 
-            if (updated[lastIndex]?.role === "assistant") {
-              const currentContent = updated[lastIndex].content;
+            if (updated[targetAssistantIndex]?.role === "assistant") {
+              const currentContent = updated[targetAssistantIndex].content;
               const nextContent =
                 currentContent === "Thinking..."
                   ? token
                   : currentContent + token;
 
-              updated[lastIndex] = {
-                ...updated[lastIndex],
+              updated[targetAssistantIndex] = {
+                ...updated[targetAssistantIndex],
                 content: nextContent,
               };
             }
@@ -219,11 +253,10 @@ function App() {
           if (!hasReceivedToken) {
             setMessages((prev) => {
               const updated = [...prev];
-              const lastIndex = updated.length - 1;
 
-              if (updated[lastIndex]?.role === "assistant") {
-                updated[lastIndex] = {
-                  ...updated[lastIndex],
+              if (updated[targetAssistantIndex]?.role === "assistant") {
+                updated[targetAssistantIndex] = {
+                  ...updated[targetAssistantIndex],
                   content: "No response received.",
                 };
               }
@@ -232,15 +265,20 @@ function App() {
             });
           }
 
-          const [updatedSessions, updatedMessages] = await Promise.all([
-            fetchSessions(),
-            fetchMessages(activeSessionId),
-          ]);
+          if (refreshMessagesOnDone) {
+            const [updatedSessions, updatedMessages] = await Promise.all([
+              fetchSessions(),
+              fetchMessages(activeSessionId),
+            ]);
 
-          setSessions(updatedSessions);
+            setSessions(updatedSessions);
 
-          if (currentSessionId === activeSessionId) {
-            setMessages(updatedMessages);
+            if (currentSessionId === activeSessionId) {
+              setMessages(updatedMessages);
+            }
+          } else {
+            const updatedSessions = await fetchSessions();
+            setSessions(updatedSessions);
           }
         },
         (streamErrorMessage) => {
@@ -249,11 +287,10 @@ function App() {
 
           setMessages((prev) => {
             const updated = [...prev];
-            const lastIndex = updated.length - 1;
 
-            if (updated[lastIndex]?.role === "assistant") {
-              updated[lastIndex] = {
-                ...updated[lastIndex],
+            if (updated[targetAssistantIndex]?.role === "assistant") {
+              updated[targetAssistantIndex] = {
+                ...updated[targetAssistantIndex],
                 content: "Error: failed to get response.",
               };
             }
@@ -268,11 +305,10 @@ function App() {
 
       setMessages((prev) => {
         const updated = [...prev];
-        const lastIndex = updated.length - 1;
 
-        if (updated[lastIndex]?.role === "assistant") {
-          updated[lastIndex] = {
-            ...updated[lastIndex],
+        if (updated[targetAssistantIndex]?.role === "assistant") {
+          updated[targetAssistantIndex] = {
+            ...updated[targetAssistantIndex],
             content: "Error: failed to get response.",
           };
         }
@@ -281,6 +317,42 @@ function App() {
       });
     } finally {
       setIsSending(false);
+    }
+  }
+
+  async function handleSendMessage(event: FormEvent) {
+    event.preventDefault();
+    await sendMessageWithStreaming(input);
+  }
+
+  async function handleRetryMessage(assistantIndex: number) {
+    if (isSending || assistantIndex <= 0 || assistantIndex >= messages.length) {
+      return;
+    }
+
+    let previousUserMessage: MessageItem | null = null;
+    for (let index = assistantIndex - 1; index >= 0; index -= 1) {
+      if (messages[index]?.role === "user") {
+        previousUserMessage = messages[index];
+        break;
+      }
+    }
+
+    if (!previousUserMessage?.content) {
+      return;
+    }
+
+    setRetryingAssistantIndex(assistantIndex);
+
+    try {
+      await sendMessageWithStreaming(previousUserMessage.content, {
+        assistantIndex,
+        appendUserMessage: false,
+        clearInput: false,
+        refreshMessagesOnDone: true,
+      });
+    } finally {
+      setRetryingAssistantIndex(null);
     }
   }
 
@@ -324,6 +396,8 @@ function App() {
           messages={messages}
           isLoadingMessages={isLoadingMessages}
           messagesEndRef={messagesEndRef}
+          onRetryMessage={handleRetryMessage}
+          retryingAssistantIndex={retryingAssistantIndex}
         />
 
         <ChatInput

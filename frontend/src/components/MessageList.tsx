@@ -9,6 +9,8 @@ type MessageListProps = {
   messages: MessageItem[];
   isLoadingMessages: boolean;
   messagesEndRef: RefObject<HTMLDivElement | null>;
+  onRetryMessage: (assistantIndex: number) => void;
+  retryingAssistantIndex: number | null;
 };
 
 function CodeBlock({ children }: { children: string }) {
@@ -154,6 +156,8 @@ function MessageList({
   messages,
   isLoadingMessages,
   messagesEndRef,
+  onRetryMessage,
+  retryingAssistantIndex,
 }: MessageListProps) {
   return (
     <div className="message-list">
@@ -175,6 +179,11 @@ function MessageList({
           const transparencyStatus = isAssistant
             ? getAssistantTransparencyStatus(message.content, sourceSections)
             : null;
+          const canRetry = (
+            isAssistant
+            && message.content !== "Thinking..."
+            && !message.content.startsWith("Error:")
+          );
 
           return (
             <div
@@ -219,6 +228,19 @@ function MessageList({
                         </ul>
                       </div>
                     ))}
+                  </div>
+                )}
+
+                {canRetry && (
+                  <div className="retry-button-row">
+                    <button
+                      className="retry-button"
+                      type="button"
+                      onClick={() => onRetryMessage(index)}
+                      disabled={retryingAssistantIndex === index}
+                    >
+                      Retry
+                    </button>
                   </div>
                 )}
               </div>
