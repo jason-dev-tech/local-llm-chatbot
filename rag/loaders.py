@@ -347,6 +347,7 @@ def load_pdf_documents(file_path: Path) -> list[dict]:
             {
                 **source_metadata,
                 "content": content,
+                "source_type": "pdf",
                 "page_number": page_index,
             }
         )
@@ -384,8 +385,24 @@ def load_documents() -> list[dict]:
             continue
 
         source_metadata = build_source_metadata(file_path)
-        documents.append({**source_metadata, "content": content})
+        documents.append(
+            {
+                **source_metadata,
+                "content": content,
+                "source_type": "txt" if suffix == ".txt" else "md",
+            }
+        )
 
     documents.extend(load_json_api_documents(manifest_path))
+
+    source_counts = {}
+    for document in documents:
+        source_label = document.get("filename") or document.get("source") or "unknown"
+        source_type = document.get("source_type") or "unknown"
+        key = (str(source_label), str(source_type))
+        source_counts[key] = source_counts.get(key, 0) + 1
+
+    for (source_label, source_type), count in source_counts.items():
+        print(f"[ingest] source={source_label} source_type={source_type} documents={count}")
 
     return documents

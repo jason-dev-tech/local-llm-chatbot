@@ -20,9 +20,14 @@ def run_ingestion() -> None:
     chunks = []
     embeddings = []
     metadatas = []
+    source_chunk_counts = {}
 
     for document in documents:
         document_chunks = chunk_text(document["content"])
+        source_label = document.get("filename") or document.get("source") or "unknown"
+        source_type = document.get("source_type") or "unknown"
+        source_key = (str(source_label), str(source_type))
+        source_chunk_counts[source_key] = source_chunk_counts.get(source_key, 0) + len(document_chunks)
 
         for index, chunk in enumerate(document_chunks):
             chunk_id = str(uuid4())
@@ -82,6 +87,9 @@ def run_ingestion() -> None:
     if not ids:
         print("No chunks were generated from the loaded documents.")
         return
+
+    for (source_label, source_type), count in source_chunk_counts.items():
+        print(f"[ingest] source={source_label} source_type={source_type} chunks={count}")
 
     vector_store.add_documents(
         ids=ids,
