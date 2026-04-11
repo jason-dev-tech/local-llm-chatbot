@@ -440,15 +440,25 @@ To ingest local knowledge files into the vector store, run:
 python -m rag.ingest
 ```
 
-## Frontend Transparency (AI Explainability)
+## AI Response Transparency and Control
 
-The frontend includes a lightweight transparency layer that communicates how each assistant response is generated:
+The frontend includes a lightweight transparency and control layer for AI responses:
 
-- **Answer based on sources** - strongly grounded in retrieved knowledge with inline citations
-- **Using retrieved information** - informed by retrieved context but without strong citation signals
-- **Limited supporting information** - indicates insufficient evidence in the knowledge base
+- **Response transparency**
+  Indicates whether responses are:
+  - based on sources
+  - using retrieved information
+  - limited by insufficient evidence
 
-This improves user trust and helps communicate the reliability and limitations of AI responses in a production-style system.
+- **System status indicators**
+  Provides user-friendly context such as:
+  - "From knowledge base"
+  - "Retrieved context"
+
+- **Retry capability**
+  Allows users to retry assistant responses without retyping the previous message, while preserving source attribution and message consistency.
+
+These features improve explainability, reliability, and user trust in a multi-source RAG system.
 
 ### Structured JSON ingestion
 
