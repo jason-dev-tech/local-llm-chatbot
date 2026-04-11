@@ -238,6 +238,12 @@ function MessageList({
                   </div>
                 )}
 
+                {transparencyStatus === "Limited supporting information" && (
+                  <div className="message-status-note">
+                    No relevant information found in the knowledge base.
+                  </div>
+                )}
+
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={{

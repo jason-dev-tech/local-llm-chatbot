@@ -20,6 +20,12 @@
   color: #4b5563;
 }
 
+.message-status-note {
+  margin-bottom: 10px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
 .retry-button-row {
   margin-bottom: 10px;
 }
