@@ -440,6 +440,17 @@ To ingest local knowledge files into the vector store, run:
 python -m rag.ingest
 ```
 
+## Ingestion Observability
+
+The ingestion pipeline now outputs source-level summaries during ingestion. Each supported source type such as `txt`, `pdf`, `json`, and `json_api` reports the number of documents loaded and the number of chunks generated. This provides deterministic verification of ingestion, easier debugging of data pipelines, and better visibility into multi-source RAG systems.
+
+Example output:
+
+```text
+[ingest] source=test_api.json source_type=json_api documents=2
+[ingest] source=test_api.json source_type=json_api chunks=2
+```
+
 ### Structured JSON ingestion
 
 The ingestion pipeline also supports lightweight structured data ingestion without changing the retrieval architecture.
