@@ -89,6 +89,7 @@ FACT_LOOKUP_PREFIXES = (
 )
 
 SHORT_ENTITY_PATTERN = re.compile(r"^[a-z0-9][a-z0-9 .&'_-]{1,59}$")
+TRAILING_PUNCTUATION_PATTERN = re.compile(r"[.!?]+$")
 
 
 SMALL_TALK_INPUTS = {
@@ -110,6 +111,11 @@ class RoutingDecision:
     route: str
     reason: str
     confidence: float
+
+
+def _normalize_for_matching(user_input: str) -> str:
+    normalized = user_input.strip().lower()
+    return TRAILING_PUNCTUATION_PATTERN.sub("", normalized).strip()
 
 
 def _looks_like_knowledge_query(normalized: str) -> bool:
@@ -141,7 +147,7 @@ def _looks_like_entity_lookup_query(normalized: str) -> bool:
 
 
 def get_routing_decision(user_input: str) -> RoutingDecision:
-    normalized = user_input.strip().lower()
+    normalized = _normalize_for_matching(user_input)
 
     if not normalized:
         return RoutingDecision(
