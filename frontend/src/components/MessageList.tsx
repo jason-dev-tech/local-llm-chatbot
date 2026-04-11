@@ -2,7 +2,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useState } from "react";
 import type { RefObject } from "react";
-import type { MessageItem } from "../types";
+import type { AssistantTransparencyStatus, MessageItem } from "../types";
+import "./MessageList.css";
 
 type MessageListProps = {
   messages: MessageItem[];
@@ -106,6 +107,49 @@ function splitMessageContent(content: string) {
   };
 }
 
+function getAssistantTransparencyStatus(
+  content: string,
+  sourceSections: Array<{ title: string; items: string[] }>,
+): AssistantTransparencyStatus | null {
+  const normalized = content.trim();
+  if (!normalized || normalized === "Thinking...") {
+    return null;
+  }
+
+  const lower = normalized.toLowerCase();
+  const mainContent = normalized.split("\n\nSources:\n", 1)[0] || normalized;
+  const hasInlineCitations = /\[\d+\]/.test(mainContent);
+  const hasSourcesUsedSection = sourceSections.some(
+    (section) => section.title.toLowerCase() === "sources used",
+  );
+  const hasRetrievedContextSection = sourceSections.some(
+    (section) => section.title.toLowerCase() === "retrieved context",
+  );
+  const clearlyLimitedEvidence =
+    lower === "i couldn't find enough relevant evidence in the knowledge base to answer that confidently."
+    || lower.includes("do not have enough information from the provided context");
+
+  if (
+    clearlyLimitedEvidence
+  ) {
+    return "Limited supporting information";
+  }
+
+  if (hasSourcesUsedSection && hasInlineCitations) {
+    return "Answer based on sources";
+  }
+
+  if (lower.startsWith("error:")) {
+    return null;
+  }
+
+  if (hasSourcesUsedSection || hasRetrievedContextSection || sourceSections.length > 0) {
+    return "Using retrieved information";
+  }
+
+  return null;
+}
+
 function MessageList({
   messages,
   isLoadingMessages,
@@ -128,6 +172,9 @@ function MessageList({
                 mainContent: message.content,
                 sourceSections: [] as Array<{ title: string; items: string[] }>,
               };
+          const transparencyStatus = isAssistant
+            ? getAssistantTransparencyStatus(message.content, sourceSections)
+            : null;
 
           return (
             <div
@@ -139,6 +186,12 @@ function MessageList({
               </div>
 
               <div className="message-content markdown-body">
+                {transparencyStatus && (
+                  <div className="message-status-badge">
+                    {transparencyStatus}
+                  </div>
+                )}
+
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={{

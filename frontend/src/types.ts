@@ -9,3 +9,8 @@ export type MessageItem = {
   content: string;
   created_at?: string;
 };
+
+export type AssistantTransparencyStatus =
+  | "Answer based on sources"
+  | "Using retrieved information"
+  | "Limited supporting information";
