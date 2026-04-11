@@ -7,6 +7,7 @@ import {
   fetchSessions,
   createSession,
   fetchMessages,
+  fetchReadiness,
   streamChat,
   renameSession,
   deleteSession,
@@ -25,6 +26,7 @@ function App() {
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [isSystemReady, setIsSystemReady] = useState<boolean | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -40,6 +42,10 @@ function App() {
 
   useEffect(() => {
     loadSessions();
+  }, []);
+
+  useEffect(() => {
+    checkSystemReadiness();
   }, []);
 
   useEffect(() => {
@@ -64,6 +70,16 @@ function App() {
       setErrorMessage("Failed to load sessions.");
     } finally {
       setIsLoadingSessions(false);
+    }
+  }
+
+  async function checkSystemReadiness() {
+    try {
+      const ready = await fetchReadiness();
+      setIsSystemReady(ready);
+    } catch (error) {
+      console.error(error);
+      setIsSystemReady(false);
     }
   }
 
@@ -375,6 +391,22 @@ function App() {
       <main className="chat-panel">
         <div className="chat-header">
           <h2>{currentSessionDisplayTitle}</h2>
+          {isSystemReady !== null && (
+            <div className="system-status-row">
+              <div
+                className={`system-status-indicator ${
+                  isSystemReady ? "ready" : "not-ready"
+                }`}
+              >
+                {isSystemReady ? "System ready" : "System not ready"}
+              </div>
+              {!isSystemReady && (
+                <div className="system-status-detail">
+                  Some AI features may be unavailable.
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {errorMessage ? (

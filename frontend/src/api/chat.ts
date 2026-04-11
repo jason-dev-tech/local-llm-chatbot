@@ -55,6 +55,14 @@ export async function fetchMessages(sessionId: string): Promise<MessageItem[]> {
 }
 
 /**
+ * Backend readiness check
+ */
+export async function fetchReadiness(): Promise<boolean> {
+  const res = await fetch(`${API_BASE}/ready`);
+  return res.ok;
+}
+
+/**
  * Rename session
  */
 export async function renameSession(sessionId: string, title: string): Promise<void> {
