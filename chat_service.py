@@ -1,8 +1,10 @@
 import json
 import logging
 import os
+import queue
 import re
 import time
+import threading
 
 from db import (
     save_message,
@@ -21,6 +23,7 @@ from llm_langchain import (
     generate_langchain_response,
     stream_langchain_chat_response,
 )
+from rag.langgraph_workflow import build_rag_workflow
 from rag.retrieval import retrieve_relevant_chunks
 from rag.router import get_routing_decision
 from rag.source_metadata import resolve_chunk_source
@@ -441,6 +444,93 @@ def build_rag_messages(session_id, user_input):
     return messages, chunks, decision
 
 
+def build_grounded_rag_system_prompt(context_text, user_input):
+    if not context_text:
+        return SYSTEM_PROMPT
+
+    return (
+        f"{SYSTEM_PROMPT}\n\n"
+        "You are answering with the help of retrieved knowledge base context.\n"
+        "Use the context below as the primary source when it is relevant to the user's question.\n"
+        "If the context contains the answer, base your response on it.\n"
+        "If the context is only partially relevant, use it carefully and make that clear.\n"
+        "If the context does not contain enough information, say so clearly instead of making up facts.\n"
+        "When you use information from the context, add inline citations using the source numbers, such as [1] or [2].\n"
+        "Reuse the same citation number whenever the same source is used again.\n"
+        "Do not add citations when you are not relying on the provided context.\n"
+        "Keep the answer clear, concise, and grounded in the provided context when possible.\n\n"
+        f"Context:\n{context_text}"
+    )
+
+
+def format_rag_answer(answer, chunks):
+    answer = normalize_answer_body(answer)
+    answer = apply_inline_citations(answer, chunks)
+    return append_sources_to_answer(answer, chunks)
+
+
+def generate_rag_answer_stream(system_prompt, user_input, stream_callback=None):
+    answer_parts = []
+    for token in stream_langchain_chat_response(system_prompt, user_input):
+        answer_parts.append(token)
+        if stream_callback is not None:
+            stream_callback(token)
+    return "".join(answer_parts)
+
+
+def ensure_current_user_message(history, user_input):
+    if history and history[-1].get("role") == "user" and history[-1].get("content") == user_input:
+        return history
+    return history + [{"role": "user", "content": user_input}]
+
+
+def invoke_rag_workflow_stream(initial_state):
+    token_queue = queue.Queue()
+    result = {}
+    error_holder = {}
+
+    def stream_callback(token):
+        token_queue.put(token)
+
+    def run_workflow():
+        try:
+            state = dict(initial_state)
+            state["stream_callback"] = stream_callback
+            result["state"] = RAG_WORKFLOW.invoke(state)
+        except Exception as error:
+            error_holder["error"] = error
+        finally:
+            token_queue.put(None)
+
+    worker = threading.Thread(target=run_workflow, daemon=True)
+    worker.start()
+
+    while True:
+        token = token_queue.get()
+        if token is None:
+            break
+        yield token
+
+    worker.join()
+
+    if "error" in error_holder:
+        raise error_holder["error"]
+
+    return result.get("state", {})
+
+
+RAG_WORKFLOW = build_rag_workflow(
+    retrieve_chunks=retrieve_relevant_chunks,
+    build_context_text=build_citation_context_text,
+    build_system_prompt=build_grounded_rag_system_prompt,
+    check_evidence=has_usable_retrieval_evidence,
+    generate_sync=generate_response,
+    generate_stream=generate_rag_answer_stream,
+    format_answer=format_rag_answer,
+    insufficient_response=INSUFFICIENT_EVIDENCE_RESPONSE,
+)
+
+
 def get_effective_routing_decision(user_input):
     heuristic_decision = get_routing_decision(user_input)
     if heuristic_decision.route == "rag":
@@ -727,7 +817,8 @@ def send_message_and_stream(session_id, user_input):
             yield llm_tool_result
             return
 
-        messages, chunks, decision = build_rag_messages(session_id, user_input)
+        history = get_recent_messages(session_id, limit=10)
+        decision = get_effective_routing_decision(user_input)
         route = decision.route
         log_observability_event(
             "route",
@@ -738,6 +829,39 @@ def send_message_and_stream(session_id, user_input):
             route_reason=decision.reason,
             route_confidence=decision.confidence,
         )
+        if route != "rag":
+            chunks = []
+            stream = stream_langchain_chat_response(SYSTEM_PROMPT, user_input)
+            answer_parts = []
+
+            for token in stream:
+                answer_parts.append(token)
+                yield token
+
+            answer = "".join(answer_parts)
+            answer = normalize_answer_body(answer)
+            save_message(session_id, "assistant", answer)
+            log_response_observability(
+                session_id,
+                user_input,
+                route,
+                None,
+                chunks,
+                answer,
+                started_at,
+                get_response_mode(route, None, evidence_sufficient=None),
+            )
+            return
+
+        workflow_state = yield from invoke_rag_workflow_stream(
+            {
+                "user_input": user_input,
+                "history": history,
+                "file_filters": extract_retrieval_file_filters(user_input),
+                "mode": "stream",
+            }
+        )
+        chunks = workflow_state.get("chunks", [])
         log_observability_event(
             "retrieval",
             session_id=session_id,
@@ -746,37 +870,24 @@ def send_message_and_stream(session_id, user_input):
             retrieved_filenames=get_retrieved_filenames(chunks),
             retrieved_chunk_count=len(chunks),
         )
-        if route == "rag" and not has_usable_retrieval_evidence(user_input, chunks):
+        if not workflow_state.get("evidence_sufficient"):
             log_guardrail_observability(session_id, user_input, route, chunks, started_at)
-            save_message(session_id, "assistant", INSUFFICIENT_EVIDENCE_RESPONSE)
+            answer = workflow_state.get("final_answer", INSUFFICIENT_EVIDENCE_RESPONSE)
+            save_message(session_id, "assistant", answer)
             log_response_observability(
                 session_id,
                 user_input,
                 route,
                 None,
                 chunks,
-                INSUFFICIENT_EVIDENCE_RESPONSE,
+                answer,
                 started_at,
                 get_response_mode(route, None, evidence_sufficient=False),
             )
-            yield INSUFFICIENT_EVIDENCE_RESPONSE
+            yield answer
             return
 
-        answer_parts = []
-
-        if chunks:
-            stream = stream_langchain_chat_response(messages[0]["content"], user_input)
-        else:
-            stream = stream_langchain_chat_response(SYSTEM_PROMPT, user_input)
-
-        for token in stream:
-            answer_parts.append(token)
-            yield token
-
-        answer = "".join(answer_parts)
-        answer = normalize_answer_body(answer)
-        answer = apply_inline_citations(answer, chunks)
-        answer = append_sources_to_answer(answer, chunks)
+        answer = workflow_state.get("final_answer", "")
         save_message(session_id, "assistant", answer)
         log_response_observability(
             session_id,
@@ -789,7 +900,7 @@ def send_message_and_stream(session_id, user_input):
             get_response_mode(
                 route,
                 None,
-                evidence_sufficient=has_usable_retrieval_evidence(user_input, chunks) if route == "rag" else None,
+                evidence_sufficient=True,
             ),
         )
     except Exception as error:
@@ -896,7 +1007,8 @@ def send_message(session_id, user_input):
             )
             return llm_tool_result
 
-        messages, chunks, decision = build_rag_messages(session_id, user_input)
+        history = get_recent_messages(session_id, limit=10)
+        decision = get_effective_routing_decision(user_input)
         route = decision.route
         log_observability_event(
             "route",
@@ -907,6 +1019,33 @@ def send_message(session_id, user_input):
             route_reason=decision.reason,
             route_confidence=decision.confidence,
         )
+        if route != "rag":
+            chunks = []
+            messages = [{"role": "system", "content": SYSTEM_PROMPT}] + ensure_current_user_message(history, user_input)
+            answer = generate_response(messages)
+            answer = normalize_answer_body(answer)
+            save_message(session_id, "assistant", answer)
+            log_response_observability(
+                session_id,
+                user_input,
+                route,
+                None,
+                chunks,
+                answer,
+                started_at,
+                get_response_mode(route, None, evidence_sufficient=None),
+            )
+            return answer
+
+        workflow_state = RAG_WORKFLOW.invoke(
+            {
+                "user_input": user_input,
+                "history": history,
+                "file_filters": extract_retrieval_file_filters(user_input),
+                "mode": "sync",
+            }
+        )
+        chunks = workflow_state.get("chunks", [])
         log_observability_event(
             "retrieval",
             session_id=session_id,
@@ -915,25 +1054,23 @@ def send_message(session_id, user_input):
             retrieved_filenames=get_retrieved_filenames(chunks),
             retrieved_chunk_count=len(chunks),
         )
-        if route == "rag" and not has_usable_retrieval_evidence(user_input, chunks):
+        if not workflow_state.get("evidence_sufficient"):
             log_guardrail_observability(session_id, user_input, route, chunks, started_at)
-            save_message(session_id, "assistant", INSUFFICIENT_EVIDENCE_RESPONSE)
+            answer = workflow_state.get("final_answer", INSUFFICIENT_EVIDENCE_RESPONSE)
+            save_message(session_id, "assistant", answer)
             log_response_observability(
                 session_id,
                 user_input,
                 route,
                 None,
                 chunks,
-                INSUFFICIENT_EVIDENCE_RESPONSE,
+                answer,
                 started_at,
                 get_response_mode(route, None, evidence_sufficient=False),
             )
-            return INSUFFICIENT_EVIDENCE_RESPONSE
+            return answer
 
-        answer = generate_response(messages)
-        answer = normalize_answer_body(answer)
-        answer = apply_inline_citations(answer, chunks)
-        answer = append_sources_to_answer(answer, chunks)
+        answer = workflow_state.get("final_answer", "")
 
         save_message(session_id, "assistant", answer)
         log_response_observability(
@@ -947,7 +1084,7 @@ def send_message(session_id, user_input):
             get_response_mode(
                 route,
                 None,
-                evidence_sufficient=has_usable_retrieval_evidence(user_input, chunks) if route == "rag" else None,
+                evidence_sufficient=True,
             ),
         )
         return answer
