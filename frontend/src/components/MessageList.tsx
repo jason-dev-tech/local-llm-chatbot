@@ -129,7 +129,7 @@ function getAssistantTransparencyStatus(
   );
   const clearlyLimitedEvidence =
     lower === "i couldn't find enough relevant evidence in the knowledge base to answer that confidently."
-    || lower.includes("do not have enough information from the provided context");
+    || lower.includes("not enough relevant information in the knowledge base");
 
   if (
     clearlyLimitedEvidence
@@ -153,9 +153,15 @@ function getAssistantTransparencyStatus(
 }
 
 function getAssistantSystemStatus(
+  content: string,
   sourceSections: Array<{ title: string; items: string[] }>,
   transparencyStatus: AssistantTransparencyStatus | null,
 ): string | null {
+  const normalized = content.trim();
+  if (!normalized || normalized === "Thinking..." || normalized.startsWith("Error:")) {
+    return null;
+  }
+
   if (transparencyStatus === "Limited supporting information") {
     return null;
   }
@@ -205,7 +211,7 @@ function MessageList({
             ? getAssistantTransparencyStatus(message.content, sourceSections)
             : null;
           const systemStatus = isAssistant
-            ? getAssistantSystemStatus(sourceSections, transparencyStatus)
+            ? getAssistantSystemStatus(message.content, sourceSections, transparencyStatus)
             : null;
           const canRetry = (
             isAssistant
