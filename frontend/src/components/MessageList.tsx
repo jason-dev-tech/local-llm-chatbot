@@ -152,6 +152,31 @@ function getAssistantTransparencyStatus(
   return null;
 }
 
+function getAssistantSystemStatus(
+  sourceSections: Array<{ title: string; items: string[] }>,
+  transparencyStatus: AssistantTransparencyStatus | null,
+): string | null {
+  if (transparencyStatus === "Limited supporting information") {
+    return null;
+  }
+
+  const hasSourcesUsedSection = sourceSections.some(
+    (section) => section.title.toLowerCase() === "sources used",
+  );
+  if (hasSourcesUsedSection) {
+    return "From knowledge base";
+  }
+
+  const hasRetrievedContextSection = sourceSections.some(
+    (section) => section.title.toLowerCase() === "retrieved context",
+  );
+  if (hasRetrievedContextSection) {
+    return "Retrieved context";
+  }
+
+  return null;
+}
+
 function MessageList({
   messages,
   isLoadingMessages,
@@ -179,6 +204,9 @@ function MessageList({
           const transparencyStatus = isAssistant
             ? getAssistantTransparencyStatus(message.content, sourceSections)
             : null;
+          const systemStatus = isAssistant
+            ? getAssistantSystemStatus(sourceSections, transparencyStatus)
+            : null;
           const canRetry = (
             isAssistant
             && message.content !== "Thinking..."
@@ -195,9 +223,18 @@ function MessageList({
               </div>
 
               <div className="message-content markdown-body">
-                {transparencyStatus && (
-                  <div className="message-status-badge">
-                    {transparencyStatus}
+                {(transparencyStatus || systemStatus) && (
+                  <div className="message-status-row">
+                    {transparencyStatus && (
+                      <div className="message-status-badge">
+                        {transparencyStatus}
+                      </div>
+                    )}
+                    {systemStatus && (
+                      <div className="message-status-badge message-status-badge-secondary">
+                        {systemStatus}
+                      </div>
+                    )}
                   </div>
                 )}
 
