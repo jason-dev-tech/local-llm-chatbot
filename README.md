@@ -31,9 +31,10 @@ The implemented system is a small full-stack AI application with a clear split b
 * **SQLite** stores sessions and message history for the current multi-session chat experience.
 * **Chroma** stores embedded document chunks for retrieval over the local knowledge base.
 * **Local or OpenAI-compatible model endpoint** supplies both chat generation and embeddings through the configured API base URL.
+* **LangChain** is used for retrieval and model interaction, while **LangGraph** is used specifically to orchestrate the RAG workflow.
 * **Evaluation and operational checks** provide deterministic eval scripts, backend self-checks, and readiness validation for runtime dependencies.
 
-The architecture is intentionally modular rather than agentic-by-default: retrieval, tools, routing, response formatting, and operational validation are separated into distinct backend layers.
+The architecture is intentionally modular rather than agentic-by-default: retrieval, tools, routing, response formatting, and operational validation are separated into distinct backend layers. The chat path remains procedural, tool routing remains custom, and LangGraph is applied only to the RAG path.
 
 ---
 
@@ -48,8 +49,10 @@ The architecture is intentionally modular rather than agentic-by-default: retrie
 ## RAG requests
 
 * The backend routes knowledge-oriented queries into the retrieval path.
+* LangChain handles retrieval and model interaction for this path, while LangGraph orchestrates the RAG workflow.
 * The query is embedded, matched against Chroma, reranked, and converted into prompt context.
-* The backend generates the answer from retrieved context, then applies inline citations and source attribution.
+* The workflow performs retrieval, an evidence check, answer generation, answer validation, and a controlled single retry when validation fails.
+* The backend then applies inline citations and source attribution before returning the final response.
 * If retrieval evidence is too weak, the backend returns the existing insufficient-evidence response instead of a confident unsupported answer.
 
 ## Tool-routed requests
@@ -92,12 +95,14 @@ The architecture is intentionally modular rather than agentic-by-default: retrie
 * **Deterministic source attribution** and citation post-processing
 * **Intent-aware routing** for knowledge-grounded requests
 * If a query contains explicit file references, retrieval is restricted to those files for more precise and controlled answers
+* LangGraph-based validation and single-retry orchestration help avoid low-quality or uncited answers without introducing uncontrolled loops
 
 ## 🛡 Grounding & Safety
 
 * Evidence-aware backend guardrails are applied to retrieval-backed answers
 * When retrieval does not provide sufficient support, the system returns a concise insufficient-evidence fallback instead of a confident unsupported RAG answer
 * Guardrails rely on lightweight retrieval signals such as rerank score and meaningful query-term overlap rather than a separate scoring service
+* Generated RAG answers are validated before formatting, with at most one retry to keep behavior reliable and deterministic
 * Successful RAG flows keep the existing citation and attribution behavior unchanged
 
 ## 🛠 Tooling Layer
@@ -204,6 +209,7 @@ The current milestone is a **production-style local AI system architecture** wit
 * Local LLM (LM Studio)
 * OpenAI-compatible API
 * LangChain for model orchestration and streaming
+* LangGraph for RAG workflow orchestration
 * Embedding model for semantic search
 
 ---
@@ -232,8 +238,11 @@ Tool path
 RAG path
    → Embedding → Vector Search (Chroma)
    → Retrieve Top-K Chunks
+   → Evidence Check
    → Context Injection
    → LLM Generation
+   → Answer Validation
+   → Single Retry if Needed
    → Inline Citation + Attribution Post-processing
 
 Chat path
@@ -707,6 +716,8 @@ Frontend behavior includes streaming responses and sectioned source rendering fo
 
 - End-to-end multi-source RAG pipeline:
   ingestion → embedding → retrieval → generation → attribution  
+
+- Introduced validation and retry orchestration using LangGraph to improve response quality  
 
 - Backend-controlled inline citations with stable numbering and dual-section attribution  
 
