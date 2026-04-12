@@ -12,6 +12,8 @@ class RagWorkflowState(TypedDict, total=False):
     evidence_sufficient: bool
     system_prompt: str
     raw_answer: str
+    answer_valid: bool
+    retried: bool
     final_answer: str
     mode: str
     stream_callback: Callable[[str], None] | None
@@ -21,6 +23,26 @@ def _ensure_current_user_message(history: list[dict], user_input: str) -> list[d
     if history and history[-1].get("role") == "user" and history[-1].get("content") == user_input:
         return history
     return history + [{"role": "user", "content": user_input}]
+
+
+def _generate_raw_answer(
+    state: RagWorkflowState,
+    generate_sync: Callable[[list[dict]], str],
+    generate_stream: Callable[[str, str, Callable[[str], None] | None], str],
+) -> str:
+    system_prompt = state.get("system_prompt", "")
+    if state.get("mode") == "stream":
+        return generate_stream(
+            system_prompt,
+            state["user_input"],
+            state.get("stream_callback"),
+        )
+
+    messages = [{"role": "system", "content": system_prompt}] + _ensure_current_user_message(
+        state.get("history", []),
+        state["user_input"],
+    )
+    return generate_sync(messages)
 
 
 def build_rag_workflow(
@@ -60,21 +82,26 @@ def build_rag_workflow(
         return "generate" if state.get("evidence_sufficient") else "insufficient"
 
     def generate_node(state: RagWorkflowState) -> RagWorkflowState:
-        system_prompt = state.get("system_prompt", "")
-        if state.get("mode") == "stream":
-            raw_answer = generate_stream(
-                system_prompt,
-                state["user_input"],
-                state.get("stream_callback"),
-            )
-        else:
-            messages = [{"role": "system", "content": system_prompt}] + _ensure_current_user_message(
-                state.get("history", []),
-                state["user_input"],
-            )
-            raw_answer = generate_sync(messages)
+        return {
+            "raw_answer": _generate_raw_answer(state, generate_sync, generate_stream),
+        }
 
-        return {"raw_answer": raw_answer}
+    def validate_answer_node(state: RagWorkflowState) -> RagWorkflowState:
+        raw_answer = state.get("raw_answer", "")
+        chunks = state.get("chunks", [])
+        answer_valid = bool(raw_answer.strip())
+        if answer_valid and chunks:
+            answer_valid = "[" in raw_answer
+        return {"answer_valid": answer_valid}
+
+    def route_after_validation(state: RagWorkflowState) -> str:
+        return "format" if state.get("answer_valid") else "retry_generate"
+
+    def retry_generate_node(state: RagWorkflowState) -> RagWorkflowState:
+        return {
+            "raw_answer": _generate_raw_answer(state, generate_sync, generate_stream),
+            "retried": True,
+        }
 
     def insufficient_node(_: RagWorkflowState) -> RagWorkflowState:
         return {"final_answer": insufficient_response}
@@ -90,6 +117,8 @@ def build_rag_workflow(
     graph.add_node("retrieve", retrieve_node)
     graph.add_node("check_evidence", evidence_node)
     graph.add_node("generate", generate_node)
+    graph.add_node("validate_answer", validate_answer_node)
+    graph.add_node("retry_generate", retry_generate_node)
     graph.add_node("insufficient", insufficient_node)
     graph.add_node("format", format_node)
 
@@ -103,7 +132,16 @@ def build_rag_workflow(
             "insufficient": "insufficient",
         },
     )
-    graph.add_edge("generate", "format")
+    graph.add_edge("generate", "validate_answer")
+    graph.add_conditional_edges(
+        "validate_answer",
+        route_after_validation,
+        {
+            "format": "format",
+            "retry_generate": "retry_generate",
+        },
+    )
+    graph.add_edge("retry_generate", "format")
     graph.add_edge("format", END)
     graph.add_edge("insufficient", END)
 
