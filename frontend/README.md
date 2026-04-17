@@ -1,77 +1,117 @@
-# Frontend (React + TypeScript)
+# Frontend
 
-This folder contains the frontend implementation of the **Local AI Chatbot with RAG**.
+React + TypeScript frontend for the local-first AI chatbot. It provides the chat interface, session management, streaming response rendering, and Markdown display for responses returned by the FastAPI backend.
 
-It provides a modern UI for interacting with the chatbot, supporting real-time streaming responses, session management, and Markdown rendering.
+## Project Purpose
 
----
+This project is intended for technical demonstration purposes only.
 
-# 🚀 Features
+The author does not use and does not intend to use this project for any commercial purposes.
 
-* Real-time **streaming chat UI**
-* Multi-session chat interface
-* Markdown rendering (tables, lists, code blocks)
-* Code block **copy button**
-* Automatic scroll to latest message
-* Loading states and error handling
+It showcases AI engineering practices for building controlled, observable, and evaluation-driven LLM systems.
 
----
+This repository is not intended for commercial use by the author.  
+All rights are reserved.
 
-# 🏗 Tech Stack
+## Architecture Overview
 
-* React (TypeScript)
-* Vite
-* Fetch API (streaming support)
-* React Markdown + remark-gfm
+The frontend is responsible for:
+- Fetching sessions and message history from the backend
+- Sending chat requests to the backend
+- Handling NDJSON streaming responses
+- Rendering assistant output with Markdown support
 
----
+Routing, retrieval, validation, retry behavior, citations, and source attribution all remain backend responsibilities.
 
-# ⚙️ Development
+## Tech Stack
 
-## Install dependencies
+### Frontend
+- React
+- TypeScript
+- Vite
+- React Markdown
+- remark-gfm
+
+### Tooling
+- ESLint
+- Docker
+- Nginx
+
+## AI Engineering Highlights
+
+- Streaming chat UI for backend-generated responses
+- UI support for source attribution sections returned by the backend
+- Session-based chat workflow with persistent backend storage
+- Frontend remains thin while AI orchestration stays in backend services
+
+## Development
+
+Install dependencies:
 
 ```bash
 npm install
 ```
 
-## Start development server
+Run the development server:
 
 ```bash
 npm run dev
 ```
 
-The app will be available at:
+Default local URL:
 
 ```text
 http://localhost:5173
 ```
 
----
+## Backend Dependency
 
-# 🔗 Backend Dependency
+The frontend depends on the backend API.
 
-This frontend requires the backend server to be running.
-
-Make sure to start the backend first:
-
-```bash
-uvicorn main:app --reload
-```
-
----
-
-# 📌 Notes
-
-* Streaming responses are handled via a custom NDJSON-based API
-* Final responses are synchronized after streaming completes (for source attribution)
-* RAG-related logic is handled entirely on the backend
-
----
-
-# 📖 More Information
-
-For full system architecture and AI details, refer to the root README:
+Local development backend default:
 
 ```text
-../README.md
+http://127.0.0.1:8000
 ```
+
+Docker Compose frontend target:
+
+```text
+http://127.0.0.1:8001
+```
+
+This can be overridden with `VITE_API_BASE_URL` or runtime config exposed through [`public/runtime-config.js`](./public/runtime-config.js).
+
+## Docker
+
+The production image builds the Vite app and serves the static output with Nginx.
+
+## Runtime Verification
+
+The frontend does not implement its own health system, but it depends on the backend readiness flow.
+- The UI calls the backend `/ready` endpoint before sending requests
+- Readiness failures are surfaced as user-facing error states
+
+Why it matters:
+- Prevents chat attempts when the backend or model endpoint is unavailable
+
+## Observability / Monitoring
+
+Observability is backend-driven.
+- The frontend renders streaming output and source attribution returned by the API
+- Monitoring, structured logs, and metrics aggregation remain backend concerns
+
+Why it matters:
+- Keeps frontend logic thin while preserving visibility into routing, retrieval, and response behavior through backend logs
+
+## Limitations
+
+- No frontend test framework is implemented
+- The frontend does not perform AI orchestration directly; it depends on backend routing and RAG behavior
+- Deployment is local/container-oriented rather than cloud-oriented
+
+## License / Usage
+
+This project is not open source.
+
+All rights are reserved. No permission is granted to anyone to use, copy, modify, distribute, or use this project for commercial purposes.
