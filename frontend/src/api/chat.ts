@@ -13,6 +13,11 @@ export type ReadinessResult = {
   notReadyReason: string | null;
 };
 
+export type KnowledgeUploadResult = {
+  filename: string;
+  status: string;
+};
+
 const API_BASE =
   window.__APP_CONFIG__?.apiBaseUrl?.trim() ||
   import.meta.env.VITE_API_BASE_URL?.trim() ||
@@ -120,6 +125,39 @@ export async function fetchReadiness(): Promise<ReadinessResult> {
       notReadyReason: "Backend service is unavailable.",
     };
   }
+}
+
+/**
+ * Upload a document to the knowledge base
+ */
+export async function uploadKnowledgeDocument(file: File): Promise<KnowledgeUploadResult> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const res = await fetch(`${API_BASE}/knowledge/upload`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    let message = "Failed to upload document";
+
+    try {
+      const payload = await res.json();
+      if (payload && typeof payload === "object" && "detail" in payload) {
+        const detail = (payload as { detail?: unknown }).detail;
+        if (typeof detail === "string" && detail.trim()) {
+          message = detail;
+        }
+      }
+    } catch {
+      // Keep the default message when the response is not JSON.
+    }
+
+    throw new Error(message);
+  }
+
+  return res.json();
 }
 
 /**

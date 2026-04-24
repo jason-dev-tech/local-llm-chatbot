@@ -1,3 +1,7 @@
+import { useRef, useState } from "react";
+import type { ChangeEvent } from "react";
+
+import { uploadKnowledgeDocument } from "../api/chat";
 import type { SessionItem } from "../types";
 
 type SessionSidebarProps = {
@@ -19,6 +23,39 @@ function SessionSidebar({
   onRenameSession,
   onDeleteSession,
 }: SessionSidebarProps) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadStatus, setUploadStatus] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+
+  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    setSelectedFile(event.target.files?.[0] ?? null);
+    setUploadStatus("");
+  }
+
+  async function handleUploadClick() {
+    if (!selectedFile || isUploading) {
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadStatus("Uploading...");
+
+    try {
+      await uploadKnowledgeDocument(selectedFile);
+      setSelectedFile(null);
+      setUploadStatus("Upload complete.");
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Upload failed.";
+      setUploadStatus(message);
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
@@ -26,6 +63,31 @@ function SessionSidebar({
         <button onClick={onCreateSession} disabled={isLoadingSessions}>
           {isLoadingSessions ? "Loading..." : "+ New Chat"}
         </button>
+      </div>
+
+      <div className="knowledge-upload-section">
+        <label htmlFor="knowledge-file-upload">Upload knowledge document</label>
+        <input
+          id="knowledge-file-upload"
+          ref={fileInputRef}
+          type="file"
+          accept=".txt,.md,.json,.pdf"
+          onChange={handleFileChange}
+          disabled={isUploading}
+        />
+        {selectedFile ? (
+          <span className="knowledge-upload-filename">{selectedFile.name}</span>
+        ) : null}
+        <button
+          type="button"
+          onClick={handleUploadClick}
+          disabled={isUploading || !selectedFile}
+        >
+          Add to knowledge base
+        </button>
+        {uploadStatus ? (
+          <span className="knowledge-upload-status">{uploadStatus}</span>
+        ) : null}
       </div>
 
       <div className="session-list">

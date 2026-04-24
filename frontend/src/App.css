@@ -80,6 +80,52 @@ button {
   gap: 10px;
 }
 
+.knowledge-upload-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #1f2937;
+}
+
+.knowledge-upload-section label {
+  color: #f9fafb;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.knowledge-upload-section input {
+  color: #e5e7eb;
+  font: inherit;
+  font-size: 13px;
+}
+
+.knowledge-upload-section button {
+  border: 1px solid #4b5563;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #2563eb;
+  color: white;
+  font-weight: 600;
+}
+
+.knowledge-upload-section button:hover:enabled {
+  background: #1d4ed8;
+}
+
+.knowledge-upload-section button:disabled {
+  background: #374151;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.knowledge-upload-filename,
+.knowledge-upload-status {
+  color: #d1d5db;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
 .session-item {
   border: 1px solid #374151;
   background: #1f2937;
