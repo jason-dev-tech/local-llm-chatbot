@@ -26,11 +26,13 @@ function SessionSidebar({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadStatus, setUploadStatus] = useState("");
+  const [uploadStatusType, setUploadStatusType] = useState<"uploading" | "success" | "error" | "">("");
   const [isUploading, setIsUploading] = useState(false);
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     setSelectedFile(event.target.files?.[0] ?? null);
     setUploadStatus("");
+    setUploadStatusType("");
   }
 
   async function handleUploadClick() {
@@ -40,17 +42,20 @@ function SessionSidebar({
 
     setIsUploading(true);
     setUploadStatus("Uploading...");
+    setUploadStatusType("uploading");
 
     try {
       await uploadKnowledgeDocument(selectedFile);
       setSelectedFile(null);
       setUploadStatus("Upload complete.");
+      setUploadStatusType("success");
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Upload failed.";
       setUploadStatus(message);
+      setUploadStatusType("error");
     } finally {
       setIsUploading(false);
     }
@@ -66,18 +71,24 @@ function SessionSidebar({
       </div>
 
       <div className="knowledge-upload-section">
-        <label htmlFor="knowledge-file-upload">Upload knowledge document</label>
+        <div className="knowledge-upload-heading">Upload knowledge document</div>
+        <p>Uploaded documents are indexed into the knowledge base.</p>
+        <div className="knowledge-upload-formats">TXT, MD, JSON, PDF</div>
+        <label className="knowledge-file-picker" htmlFor="knowledge-file-upload">
+          Choose file
+        </label>
         <input
           id="knowledge-file-upload"
+          className="knowledge-file-input"
           ref={fileInputRef}
           type="file"
           accept=".txt,.md,.json,.pdf"
           onChange={handleFileChange}
           disabled={isUploading}
         />
-        {selectedFile ? (
-          <span className="knowledge-upload-filename">{selectedFile.name}</span>
-        ) : null}
+        <div className="knowledge-upload-filename">
+          {selectedFile ? selectedFile.name : "No file selected"}
+        </div>
         <button
           type="button"
           onClick={handleUploadClick}
@@ -86,7 +97,7 @@ function SessionSidebar({
           Add to knowledge base
         </button>
         {uploadStatus ? (
-          <span className="knowledge-upload-status">{uploadStatus}</span>
+          <span className={`knowledge-upload-status ${uploadStatusType}`}>{uploadStatus}</span>
         ) : null}
       </div>
 
