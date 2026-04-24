@@ -134,6 +134,30 @@ def _format_response_mode_distribution(counter: Counter, total: int) -> list[str
     return lines
 
 
+def _collect_latency_summary(events: list[dict], field_name: str) -> dict:
+    values = [
+        float(event[field_name])
+        for event in events
+        if isinstance(event.get(field_name), (int, float))
+    ]
+
+    return {
+        "count": len(values),
+        "average_ms": _safe_mean(values),
+        "p50_ms": _percentile(values, 0.50),
+        "p95_ms": _percentile(values, 0.95),
+    }
+
+
+def _format_latency_summary(label: str, summary: dict) -> str:
+    return (
+        f"- {label}: count={summary['count']}, "
+        f"avg={_format_ms(summary['average_ms'])}, "
+        f"p50={_format_ms(summary['p50_ms'])}, "
+        f"p95={_format_ms(summary['p95_ms'])}"
+    )
+
+
 def _collect_response_metrics(response_events: list[dict]) -> dict:
     latencies = [
         float(event["latency_ms"])
@@ -306,6 +330,7 @@ def _collect_retrieval_metrics(retrieval_events: list[dict]) -> dict:
         "average_retrieved_chunk_count": _safe_mean(chunk_counts),
         "zero_retrieval_count": zero_retrieval_count,
         "top_filenames": filename_counter,
+        "retrieval_latency": _collect_latency_summary(retrieval_events, "retrieval_latency_ms"),
     }
 
 
@@ -331,6 +356,12 @@ def build_metrics_report(events: list[dict]) -> str:
     session_metrics = _collect_session_metrics(response_events, error_events)
     query_metrics = _collect_query_metrics(response_events, error_events, retrieval_events)
     retrieval_metrics = _collect_retrieval_metrics(retrieval_events)
+    stage_latency_metrics = {
+        "route_decision": _collect_latency_summary(response_events, "route_decision_latency_ms"),
+        "retrieval": _collect_latency_summary(response_events, "retrieval_latency_ms"),
+        "llm_generation": _collect_latency_summary(response_events, "llm_generation_latency_ms"),
+        "total_request": _collect_latency_summary(response_events, "latency_ms"),
+    }
 
     lines = [
         "Metrics Summary",
@@ -341,6 +372,12 @@ def build_metrics_report(events: list[dict]) -> str:
         f"- Overall average response-stage latency: {_format_ms(response_metrics['average_latency_ms'])}",
         f"- Response-stage latency p50: {_format_ms(response_metrics['p50_latency_ms'])}",
         f"- Response-stage latency p95: {_format_ms(response_metrics['p95_latency_ms'])}",
+        "",
+        "Stage latency metrics",
+        _format_latency_summary("Route decision", stage_latency_metrics["route_decision"]),
+        _format_latency_summary("Retrieval", stage_latency_metrics["retrieval"]),
+        _format_latency_summary("LLM generation", stage_latency_metrics["llm_generation"]),
+        _format_latency_summary("Total request", stage_latency_metrics["total_request"]),
         "",
         "Request outcome metrics",
         f"- Overall success count: {outcome_metrics['success_count']}",
@@ -459,6 +496,7 @@ def build_metrics_report(events: list[dict]) -> str:
             if retrieval_metrics["average_retrieved_chunk_count"] is not None
             else "- Average retrieved chunk count: n/a",
             f"- Zero-retrieval case count: {retrieval_metrics['zero_retrieval_count']}",
+            _format_latency_summary("Retrieval event latency", retrieval_metrics["retrieval_latency"]),
             "- Most frequently retrieved filenames:",
             *_format_count_map(retrieval_metrics["top_filenames"]),
         ]

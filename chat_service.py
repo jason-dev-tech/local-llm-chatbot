@@ -108,6 +108,10 @@ SUMMARIZE_TOOL_NAME = "summarize_text"
 LOGGER = logging.getLogger("chatbot.observability")
 
 
+def elapsed_ms(started_at):
+    return round((time.perf_counter() - started_at) * 1000, 2)
+
+
 def build_messages(session_id):
     history = get_recent_messages(session_id, limit=10)
     return [{"role": "system", "content": SYSTEM_PROMPT}] + history
@@ -139,19 +143,40 @@ def get_used_source_labels(answer, chunks):
     ]
 
 
-def log_response_observability(session_id, user_query, route, tool_name, chunks, answer, started_at, response_mode):
-    log_observability_event(
-        "response",
-        session_id=session_id,
-        user_query=user_query,
-        effective_route=route,
-        response_mode=response_mode,
-        tool_used=tool_name,
-        retrieved_filenames=get_retrieved_filenames(chunks),
-        retrieved_chunk_count=len(chunks),
-        sources_used=get_used_source_labels(answer, chunks),
-        latency_ms=round((time.perf_counter() - started_at) * 1000, 2),
-    )
+def log_response_observability(
+    session_id,
+    user_query,
+    route,
+    tool_name,
+    chunks,
+    answer,
+    started_at,
+    response_mode,
+    *,
+    route_decision_latency_ms=None,
+    retrieval_latency_ms=None,
+    llm_generation_latency_ms=None,
+):
+    payload = {
+        "session_id": session_id,
+        "user_query": user_query,
+        "effective_route": route,
+        "response_mode": response_mode,
+        "tool_used": tool_name,
+        "retrieved_filenames": get_retrieved_filenames(chunks),
+        "retrieved_chunk_count": len(chunks),
+        "sources_used": get_used_source_labels(answer, chunks),
+        "latency_ms": elapsed_ms(started_at),
+    }
+
+    if route_decision_latency_ms is not None:
+        payload["route_decision_latency_ms"] = route_decision_latency_ms
+    if retrieval_latency_ms is not None:
+        payload["retrieval_latency_ms"] = retrieval_latency_ms
+    if llm_generation_latency_ms is not None:
+        payload["llm_generation_latency_ms"] = llm_generation_latency_ms
+
+    log_observability_event("response", **payload)
 
 
 def log_guardrail_observability(session_id, user_query, route, chunks, started_at):
@@ -163,7 +188,7 @@ def log_guardrail_observability(session_id, user_query, route, chunks, started_a
         guardrail_type="insufficient_evidence",
         retrieved_filenames=get_retrieved_filenames(chunks),
         retrieved_chunk_count=len(chunks),
-        latency_ms=round((time.perf_counter() - started_at) * 1000, 2),
+        latency_ms=elapsed_ms(started_at),
     )
 
 
@@ -177,7 +202,7 @@ def log_error_observability(session_id, user_query, route, tool_name, chunks, st
         retrieved_filenames=get_retrieved_filenames(chunks),
         retrieved_chunk_count=len(chunks),
         error_type=type(error).__name__,
-        latency_ms=round((time.perf_counter() - started_at) * 1000, 2),
+        latency_ms=elapsed_ms(started_at),
     )
 
 
@@ -720,6 +745,9 @@ def send_message_and_stream(session_id, user_input):
     route = None
     tool_name = None
     chunks = []
+    route_decision_latency_ms = None
+    retrieval_latency_ms = None
+    llm_generation_latency_ms = None
 
     try:
         save_message(session_id, "user", user_input)
@@ -754,11 +782,13 @@ def send_message_and_stream(session_id, user_input):
         retrieval_summary_result = maybe_run_retrieval_summary(user_input)
         if retrieval_summary_result is not None:
             route = "rag"
+            retrieval_started_at = time.perf_counter()
             chunks = retrieve_relevant_chunks(
                 user_input,
                 top_k=3,
                 file_filters=extract_retrieval_file_filters(user_input),
             )
+            retrieval_latency_ms = elapsed_ms(retrieval_started_at)
             log_observability_event(
                 "route",
                 session_id=session_id,
@@ -773,6 +803,7 @@ def send_message_and_stream(session_id, user_input):
                 effective_route=route,
                 retrieved_filenames=get_retrieved_filenames(chunks),
                 retrieved_chunk_count=len(chunks),
+                retrieval_latency_ms=retrieval_latency_ms,
             )
             save_message(session_id, "assistant", retrieval_summary_result)
             log_response_observability(
@@ -788,6 +819,7 @@ def send_message_and_stream(session_id, user_input):
                     None,
                     evidence_sufficient=has_usable_retrieval_evidence(user_input, chunks),
                 ),
+                retrieval_latency_ms=retrieval_latency_ms,
             )
             yield retrieval_summary_result
             return
@@ -818,7 +850,9 @@ def send_message_and_stream(session_id, user_input):
             return
 
         history = get_recent_messages(session_id, limit=10)
+        route_started_at = time.perf_counter()
         decision = get_effective_routing_decision(user_input)
+        route_decision_latency_ms = elapsed_ms(route_started_at)
         route = decision.route
         log_observability_event(
             "route",
@@ -828,9 +862,11 @@ def send_message_and_stream(session_id, user_input):
             tool_used=None,
             route_reason=decision.reason,
             route_confidence=decision.confidence,
+            route_decision_latency_ms=route_decision_latency_ms,
         )
         if route != "rag":
             chunks = []
+            generation_started_at = time.perf_counter()
             stream = stream_langchain_chat_response(SYSTEM_PROMPT, user_input)
             answer_parts = []
 
@@ -838,6 +874,7 @@ def send_message_and_stream(session_id, user_input):
                 answer_parts.append(token)
                 yield token
 
+            llm_generation_latency_ms = elapsed_ms(generation_started_at)
             answer = "".join(answer_parts)
             answer = normalize_answer_body(answer)
             save_message(session_id, "assistant", answer)
@@ -850,6 +887,8 @@ def send_message_and_stream(session_id, user_input):
                 answer,
                 started_at,
                 get_response_mode(route, None, evidence_sufficient=None),
+                route_decision_latency_ms=route_decision_latency_ms,
+                llm_generation_latency_ms=llm_generation_latency_ms,
             )
             return
 
@@ -862,6 +901,8 @@ def send_message_and_stream(session_id, user_input):
             }
         )
         chunks = workflow_state.get("chunks", [])
+        retrieval_latency_ms = workflow_state.get("retrieval_latency_ms")
+        llm_generation_latency_ms = workflow_state.get("llm_generation_latency_ms")
         log_observability_event(
             "retrieval",
             session_id=session_id,
@@ -869,6 +910,7 @@ def send_message_and_stream(session_id, user_input):
             effective_route=route,
             retrieved_filenames=get_retrieved_filenames(chunks),
             retrieved_chunk_count=len(chunks),
+            retrieval_latency_ms=retrieval_latency_ms,
         )
         if not workflow_state.get("evidence_sufficient"):
             log_guardrail_observability(session_id, user_input, route, chunks, started_at)
@@ -883,6 +925,9 @@ def send_message_and_stream(session_id, user_input):
                 answer,
                 started_at,
                 get_response_mode(route, None, evidence_sufficient=False),
+                route_decision_latency_ms=route_decision_latency_ms,
+                retrieval_latency_ms=retrieval_latency_ms,
+                llm_generation_latency_ms=llm_generation_latency_ms,
             )
             yield answer
             return
@@ -902,6 +947,9 @@ def send_message_and_stream(session_id, user_input):
                 None,
                 evidence_sufficient=True,
             ),
+            route_decision_latency_ms=route_decision_latency_ms,
+            retrieval_latency_ms=retrieval_latency_ms,
+            llm_generation_latency_ms=llm_generation_latency_ms,
         )
     except Exception as error:
         log_error_observability(session_id, user_input, route, tool_name, chunks, started_at, error)
@@ -913,6 +961,9 @@ def send_message(session_id, user_input):
     route = None
     tool_name = None
     chunks = []
+    route_decision_latency_ms = None
+    retrieval_latency_ms = None
+    llm_generation_latency_ms = None
 
     try:
         save_message(session_id, "user", user_input)
@@ -946,11 +997,13 @@ def send_message(session_id, user_input):
         retrieval_summary_result = maybe_run_retrieval_summary(user_input)
         if retrieval_summary_result is not None:
             route = "rag"
+            retrieval_started_at = time.perf_counter()
             chunks = retrieve_relevant_chunks(
                 user_input,
                 top_k=3,
                 file_filters=extract_retrieval_file_filters(user_input),
             )
+            retrieval_latency_ms = elapsed_ms(retrieval_started_at)
             log_observability_event(
                 "route",
                 session_id=session_id,
@@ -965,6 +1018,7 @@ def send_message(session_id, user_input):
                 effective_route=route,
                 retrieved_filenames=get_retrieved_filenames(chunks),
                 retrieved_chunk_count=len(chunks),
+                retrieval_latency_ms=retrieval_latency_ms,
             )
             save_message(session_id, "assistant", retrieval_summary_result)
             log_response_observability(
@@ -980,6 +1034,7 @@ def send_message(session_id, user_input):
                     None,
                     evidence_sufficient=has_usable_retrieval_evidence(user_input, chunks),
                 ),
+                retrieval_latency_ms=retrieval_latency_ms,
             )
             return retrieval_summary_result
 
@@ -1008,7 +1063,9 @@ def send_message(session_id, user_input):
             return llm_tool_result
 
         history = get_recent_messages(session_id, limit=10)
+        route_started_at = time.perf_counter()
         decision = get_effective_routing_decision(user_input)
+        route_decision_latency_ms = elapsed_ms(route_started_at)
         route = decision.route
         log_observability_event(
             "route",
@@ -1018,11 +1075,14 @@ def send_message(session_id, user_input):
             tool_used=None,
             route_reason=decision.reason,
             route_confidence=decision.confidence,
+            route_decision_latency_ms=route_decision_latency_ms,
         )
         if route != "rag":
             chunks = []
             messages = [{"role": "system", "content": SYSTEM_PROMPT}] + ensure_current_user_message(history, user_input)
+            generation_started_at = time.perf_counter()
             answer = generate_response(messages)
+            llm_generation_latency_ms = elapsed_ms(generation_started_at)
             answer = normalize_answer_body(answer)
             save_message(session_id, "assistant", answer)
             log_response_observability(
@@ -1034,6 +1094,8 @@ def send_message(session_id, user_input):
                 answer,
                 started_at,
                 get_response_mode(route, None, evidence_sufficient=None),
+                route_decision_latency_ms=route_decision_latency_ms,
+                llm_generation_latency_ms=llm_generation_latency_ms,
             )
             return answer
 
@@ -1046,6 +1108,8 @@ def send_message(session_id, user_input):
             }
         )
         chunks = workflow_state.get("chunks", [])
+        retrieval_latency_ms = workflow_state.get("retrieval_latency_ms")
+        llm_generation_latency_ms = workflow_state.get("llm_generation_latency_ms")
         log_observability_event(
             "retrieval",
             session_id=session_id,
@@ -1053,6 +1117,7 @@ def send_message(session_id, user_input):
             effective_route=route,
             retrieved_filenames=get_retrieved_filenames(chunks),
             retrieved_chunk_count=len(chunks),
+            retrieval_latency_ms=retrieval_latency_ms,
         )
         if not workflow_state.get("evidence_sufficient"):
             log_guardrail_observability(session_id, user_input, route, chunks, started_at)
@@ -1067,6 +1132,9 @@ def send_message(session_id, user_input):
                 answer,
                 started_at,
                 get_response_mode(route, None, evidence_sufficient=False),
+                route_decision_latency_ms=route_decision_latency_ms,
+                retrieval_latency_ms=retrieval_latency_ms,
+                llm_generation_latency_ms=llm_generation_latency_ms,
             )
             return answer
 
@@ -1086,6 +1154,9 @@ def send_message(session_id, user_input):
                 None,
                 evidence_sufficient=True,
             ),
+            route_decision_latency_ms=route_decision_latency_ms,
+            retrieval_latency_ms=retrieval_latency_ms,
+            llm_generation_latency_ms=llm_generation_latency_ms,
         )
         return answer
     except Exception as error:

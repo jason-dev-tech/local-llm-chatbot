@@ -65,7 +65,7 @@ The RAG path is orchestrated with LangGraph:
 
 ### Observability / Monitoring
 - Structured backend observability events are written to the terminal and `logs/backend.log`
-- Events capture routing, retrieval, response mode, latency, and error details
+- Events capture routing, retrieval, response mode, stage timing, total latency, and error details
 - A metrics aggregation script summarizes route distribution, latency, retrieval behavior, and session activity
 
 ## Tech Stack
@@ -261,6 +261,7 @@ python -m observability.metrics_summary logs/backend.log
 
 Why it matters:
 - Aggregates latency, route distribution, response modes, tool usage, retrieval counts, and session/query patterns
+- Includes route decision, retrieval, LLM generation, and total request latency summaries when available
 - Provides a lightweight operations view without adding external monitoring infrastructure
 
 ## Evaluation

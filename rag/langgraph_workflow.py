@@ -1,3 +1,4 @@
+import time
 from typing import Any, Callable, TypedDict
 
 from langgraph.graph import END, START, StateGraph
@@ -15,8 +16,14 @@ class RagWorkflowState(TypedDict, total=False):
     answer_valid: bool
     retried: bool
     final_answer: str
+    retrieval_latency_ms: float
+    llm_generation_latency_ms: float
     mode: str
     stream_callback: Callable[[str], None] | None
+
+
+def _elapsed_ms(started_at: float) -> float:
+    return round((time.perf_counter() - started_at) * 1000, 2)
 
 
 def _ensure_current_user_message(history: list[dict], user_input: str) -> list[dict]:
@@ -59,6 +66,7 @@ def build_rag_workflow(
     graph = StateGraph(RagWorkflowState)
 
     def retrieve_node(state: RagWorkflowState) -> RagWorkflowState:
+        started_at = time.perf_counter()
         chunks = retrieve_chunks(
             state["user_input"],
             3,
@@ -70,6 +78,7 @@ def build_rag_workflow(
             "chunks": chunks,
             "context_text": context_text,
             "system_prompt": system_prompt,
+            "retrieval_latency_ms": _elapsed_ms(started_at),
         }
 
     def evidence_node(state: RagWorkflowState) -> RagWorkflowState:
@@ -82,8 +91,10 @@ def build_rag_workflow(
         return "generate" if state.get("evidence_sufficient") else "insufficient"
 
     def generate_node(state: RagWorkflowState) -> RagWorkflowState:
+        started_at = time.perf_counter()
         return {
             "raw_answer": _generate_raw_answer(state, generate_sync, generate_stream),
+            "llm_generation_latency_ms": _elapsed_ms(started_at),
         }
 
     def validate_answer_node(state: RagWorkflowState) -> RagWorkflowState:
@@ -98,8 +109,12 @@ def build_rag_workflow(
         return "format" if state.get("answer_valid") else "retry_generate"
 
     def retry_generate_node(state: RagWorkflowState) -> RagWorkflowState:
+        started_at = time.perf_counter()
+        raw_answer = _generate_raw_answer(state, generate_sync, generate_stream)
+        previous_latency = state.get("llm_generation_latency_ms", 0)
         return {
-            "raw_answer": _generate_raw_answer(state, generate_sync, generate_stream),
+            "raw_answer": raw_answer,
+            "llm_generation_latency_ms": previous_latency + _elapsed_ms(started_at),
             "retried": True,
         }
 
