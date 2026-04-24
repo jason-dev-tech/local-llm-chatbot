@@ -21,6 +21,7 @@ from db import (
 from llm import generate_response
 from llm_langchain import (
     generate_langchain_response,
+    stream_langchain_response,
     stream_langchain_chat_response,
 )
 from rag.langgraph_workflow import build_rag_workflow
@@ -568,7 +569,7 @@ def get_effective_routing_decision(user_input):
     return heuristic_decision
 
 
-def maybe_run_retrieval_summary(user_input):
+def build_retrieval_summary_request(user_input):
     normalized = user_input.strip().lower()
     if not normalized.startswith("summarize") and not normalized.startswith("summary"):
         return None
@@ -591,7 +592,10 @@ def maybe_run_retrieval_summary(user_input):
         file_filters=extract_retrieval_file_filters(user_input),
     )
     if not chunks:
-        return "I couldn't find relevant knowledge to summarize."
+        return {
+            "chunks": chunks,
+            "fallback": "I couldn't find relevant knowledge to summarize.",
+        }
 
     retrieved_text = "\n\n".join(
         chunk.get("content", "").strip()
@@ -599,7 +603,10 @@ def maybe_run_retrieval_summary(user_input):
         if chunk.get("content", "").strip()
     )
     if not retrieved_text:
-        return "I couldn't find relevant knowledge to summarize."
+        return {
+            "chunks": chunks,
+            "fallback": "I couldn't find relevant knowledge to summarize.",
+        }
 
     summary_prompt = (
         "Summarize the retrieved knowledge base content for the user's request.\n"
@@ -615,8 +622,24 @@ def maybe_run_retrieval_summary(user_input):
         f"Retrieved content:\n{retrieved_text}"
     )
 
+    return {
+        "chunks": chunks,
+        "prompt": summary_prompt,
+    }
+
+
+def maybe_run_retrieval_summary(user_input):
+    summary_request = build_retrieval_summary_request(user_input)
+    if summary_request is None:
+        return None
+
+    chunks = summary_request["chunks"]
+    fallback = summary_request.get("fallback")
+    if fallback:
+        return fallback
+
     try:
-        summary = generate_langchain_response(summary_prompt).strip()
+        summary = generate_langchain_response(summary_request["prompt"]).strip()
     except Exception:
         summary = ""
 
@@ -779,16 +802,12 @@ def send_message_and_stream(session_id, user_input):
             yield tool_result
             return
 
-        retrieval_summary_result = maybe_run_retrieval_summary(user_input)
-        if retrieval_summary_result is not None:
+        retrieval_summary_started_at = time.perf_counter()
+        retrieval_summary_request = build_retrieval_summary_request(user_input)
+        if retrieval_summary_request is not None:
             route = "rag"
-            retrieval_started_at = time.perf_counter()
-            chunks = retrieve_relevant_chunks(
-                user_input,
-                top_k=3,
-                file_filters=extract_retrieval_file_filters(user_input),
-            )
-            retrieval_latency_ms = elapsed_ms(retrieval_started_at)
+            chunks = retrieval_summary_request["chunks"]
+            retrieval_latency_ms = elapsed_ms(retrieval_summary_started_at)
             log_observability_event(
                 "route",
                 session_id=session_id,
@@ -805,6 +824,30 @@ def send_message_and_stream(session_id, user_input):
                 retrieved_chunk_count=len(chunks),
                 retrieval_latency_ms=retrieval_latency_ms,
             )
+            retrieval_summary_result = retrieval_summary_request.get("fallback")
+            llm_generation_started_at = time.perf_counter()
+            if retrieval_summary_result is not None:
+                yield retrieval_summary_result
+            else:
+                summary_parts = []
+                try:
+                    for token in stream_langchain_response(retrieval_summary_request["prompt"]):
+                        summary_parts.append(token)
+                        yield token
+                except Exception:
+                    summary_parts = []
+
+                summary = "".join(summary_parts).strip()
+                if summary:
+                    retrieval_summary_result = append_sources_to_answer(summary, chunks)
+                    suffix = retrieval_summary_result[len(summary):]
+                    if suffix:
+                        yield suffix
+                else:
+                    retrieval_summary_result = "I couldn't produce a summary from the retrieved knowledge."
+                    yield retrieval_summary_result
+
+            llm_generation_latency_ms = elapsed_ms(llm_generation_started_at)
             save_message(session_id, "assistant", retrieval_summary_result)
             log_response_observability(
                 session_id,
@@ -820,8 +863,8 @@ def send_message_and_stream(session_id, user_input):
                     evidence_sufficient=has_usable_retrieval_evidence(user_input, chunks),
                 ),
                 retrieval_latency_ms=retrieval_latency_ms,
+                llm_generation_latency_ms=llm_generation_latency_ms,
             )
-            yield retrieval_summary_result
             return
 
         llm_tool_result = maybe_run_llm_routed_tool(user_input)

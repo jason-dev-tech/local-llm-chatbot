@@ -203,6 +203,16 @@ function App() {
     }
   }
 
+  function findLastAssistantMessageIndex(messageItems: MessageItem[]) {
+    for (let index = messageItems.length - 1; index >= 0; index -= 1) {
+      if (messageItems[index]?.role === "assistant") {
+        return index;
+      }
+    }
+
+    return -1;
+  }
+
   async function sendMessageWithStreaming(
     messageText: string,
     options?: {
@@ -227,6 +237,7 @@ function App() {
     const appendUserMessage = options?.appendUserMessage ?? true;
     const clearInput = options?.clearInput ?? true;
     const refreshMessagesOnDone = options?.refreshMessagesOnDone ?? true;
+    const isRetry = appendUserMessage === false;
 
     const userMessage: MessageItem = {
       role: "user",
@@ -269,6 +280,7 @@ function App() {
 
     try {
       let hasReceivedToken = false;
+      const responseStartedAt = performance.now();
 
       await streamChat(
         activeSessionId,
@@ -296,6 +308,8 @@ function App() {
           });
         },
         async () => {
+          const responseTimeSeconds = (performance.now() - responseStartedAt) / 1000;
+
           if (!hasReceivedToken) {
             setMessages((prev) => {
               const updated = [...prev];
@@ -311,20 +325,44 @@ function App() {
             });
           }
 
-          if (refreshMessagesOnDone) {
+          if (refreshMessagesOnDone && isRetry) {
             const [updatedSessions, updatedMessages] = await Promise.all([
               fetchSessions(),
               fetchMessages(activeSessionId),
             ]);
+            const messagesWithResponseTime = [...updatedMessages];
+            const responseTimeIndex = isRetry
+              ? findLastAssistantMessageIndex(messagesWithResponseTime)
+              : targetAssistantIndex;
+
+            if (messagesWithResponseTime[responseTimeIndex]?.role === "assistant") {
+              messagesWithResponseTime[responseTimeIndex] = {
+                ...messagesWithResponseTime[responseTimeIndex],
+                responseTimeSeconds,
+              };
+            }
 
             setSessions(updatedSessions);
 
             if (currentSessionId === activeSessionId) {
-              setMessages(updatedMessages);
+              setMessages(messagesWithResponseTime);
             }
           } else {
             const updatedSessions = await fetchSessions();
             setSessions(updatedSessions);
+
+            setMessages((prev) => {
+              const updated = [...prev];
+
+              if (updated[targetAssistantIndex]?.role === "assistant") {
+                updated[targetAssistantIndex] = {
+                  ...updated[targetAssistantIndex],
+                  responseTimeSeconds,
+                };
+              }
+
+              return updated;
+            });
           }
         },
         (streamErrorMessage) => {

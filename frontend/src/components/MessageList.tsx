@@ -292,6 +292,12 @@ function MessageList({
                     </button>
                   </div>
                 )}
+
+                {isAssistant && message.responseTimeSeconds !== undefined && (
+                  <div className="response-time">
+                    Response time: {message.responseTimeSeconds.toFixed(1)}s
+                  </div>
+                )}
               </div>
             </div>
           );

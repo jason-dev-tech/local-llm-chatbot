@@ -8,6 +8,7 @@ export type MessageItem = {
   role: "user" | "assistant";
   content: string;
   created_at?: string;
+  responseTimeSeconds?: number;
 };
 
 export type AssistantTransparencyStatus =
