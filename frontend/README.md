@@ -19,6 +19,7 @@ The frontend is responsible for:
 - Fetching sessions and message history from the backend
 - Sending chat requests to the backend
 - Handling NDJSON streaming responses
+- Uploading selected knowledge documents from the sidebar
 - Rendering assistant output with Markdown support
 
 Routing, retrieval, validation, retry behavior, citations, and source attribution all remain backend responsibilities.
@@ -41,6 +42,7 @@ Routing, retrieval, validation, retry behavior, citations, and source attributio
 
 - Streaming chat UI for backend-generated responses
 - UI support for source attribution sections returned by the backend
+- Sidebar knowledge upload UI with selected-file, uploading, success, and error states
 - Session-based chat workflow with persistent backend storage
 - Frontend remains thin while AI orchestration stays in backend services
 
@@ -81,6 +83,12 @@ http://127.0.0.1:8001
 ```
 
 This can be overridden with `VITE_API_BASE_URL` or runtime config exposed through [`public/runtime-config.js`](./public/runtime-config.js).
+
+## Knowledge Upload
+
+The sidebar includes a minimal knowledge document upload control. The frontend sends the selected file to `POST /knowledge/upload` as multipart form data using the existing backend API.
+
+Upload state is limited to the selected filename plus concise uploading, success, and error messages. Chat streaming behavior is unchanged.
 
 ## Docker
 

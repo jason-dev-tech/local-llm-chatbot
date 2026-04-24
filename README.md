@@ -36,6 +36,7 @@ The RAG path is orchestrated with LangGraph:
 
 ### Backend
 - FastAPI API for sessions, chat, streaming, readiness, and session management
+- Knowledge document upload endpoint for supported local RAG sources
 - Procedural chat orchestration in the backend service layer
 - Registry-based tool execution for summarization, rewriting, and entity extraction
 - Runtime readiness and operational checks
@@ -50,12 +51,14 @@ The RAG path is orchestrated with LangGraph:
 
 ### Ingestion / Knowledge Pipeline
 - Loads `.txt`, `.md`, `.json`, and `.pdf` documents from the local knowledge directory
+- Supports uploading TXT, MD, JSON, and PDF documents from the sidebar UI
 - Parses PDFs with PyPDF and expands structured JSON content into retrievable records
 - Optionally loads JSON API sources from `knowledge/api_sources.json`
 - Chunks content, generates embeddings, and stores vectors plus metadata in ChromaDB
 
 ### Frontend
 - React UI for multi-session chat
+- Sidebar knowledge upload UI for adding documents to the RAG knowledge base
 - Streaming NDJSON response handling
 - Markdown rendering for assistant responses
 - Session create, rename, delete, and reload flows
@@ -203,6 +206,8 @@ The knowledge pipeline prepares local content for retrieval:
 - Builds chunks and embeddings
 - Stores vectors and metadata in ChromaDB
 
+Documents can also be uploaded from the frontend sidebar. Uploaded TXT, MD, JSON, and PDF files are saved into the configured knowledge directory, indexed into ChromaDB, and become available for future RAG retrieval. This is knowledge ingestion for the shared knowledge base, not a one-time chat attachment.
+
 Run ingestion:
 
 ```bash
@@ -225,6 +230,11 @@ Run the self-check:
 ```bash
 python -m operational.self_check
 ```
+
+Verify document upload and retrieval:
+1. Upload a supported document from the sidebar.
+2. Ask a question related to the uploaded content.
+3. Confirm the answer cites the uploaded source.
 
 Why it matters:
 - Confirms the model endpoint, embeddings, storage, and runtime dependencies are available before interactive use
