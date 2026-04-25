@@ -6,15 +6,10 @@ from rag.loaders import load_documents
 from rag.vector_store import VectorStore
 
 
-def run_ingestion() -> None:
-    documents = load_documents()
-
-    if not documents:
-        print("No supported documents found in the knowledge directory.")
-        return
-
+def ingest_documents(documents: list[dict], extra_metadata: dict | None = None) -> int:
     embedding_service = EmbeddingService()
     vector_store = VectorStore()
+    extra_metadata = extra_metadata or {}
 
     ids = []
     chunks = []
@@ -76,12 +71,12 @@ def run_ingestion() -> None:
                         if "page_number" in document
                         else {}
                     ),
+                    **extra_metadata,
                 }
             )
 
     if not ids:
-        print("No chunks were generated from the loaded documents.")
-        return
+        return 0
 
     vector_store.add_documents(
         ids=ids,
@@ -90,7 +85,22 @@ def run_ingestion() -> None:
         metadatas=metadatas,
     )
 
-    print(f"Ingestion completed successfully. Stored {len(ids)} chunks.")
+    return len(ids)
+
+
+def run_ingestion() -> None:
+    documents = load_documents()
+
+    if not documents:
+        print("No supported documents found in the knowledge directory.")
+        return
+
+    stored_count = ingest_documents(documents)
+    if not stored_count:
+        print("No chunks were generated from the loaded documents.")
+        return
+
+    print(f"Ingestion completed successfully. Stored {stored_count} chunks.")
 
 
 if __name__ == "__main__":

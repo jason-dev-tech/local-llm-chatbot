@@ -12,8 +12,8 @@ from pydantic import BaseModel
 from config import KNOWLEDGE_DIR
 from db import init_db, get_all_sessions_with_titles, session_exists, get_session_messages
 from operational.runtime_checks import run_backend_smoke_checks, validate_runtime_config
-from rag.ingest import run_ingestion
-from rag.loaders import SUPPORTED_EXTENSIONS
+from rag.ingest import ingest_documents, run_ingestion
+from rag.loaders import SUPPORTED_EXTENSIONS, load_file_documents
 from chat_service import (
     create_new_session,
     rename_session,
@@ -27,6 +27,7 @@ LOG_DIR.mkdir(exist_ok=True)
 BACKEND_LOG_PATH = LOG_DIR / "backend.log"
 STARTUP_LOGGER = logging.getLogger("chatbot.startup")
 SAFE_FILENAME_PATTERN = re.compile(r"[^A-Za-z0-9._ -]+")
+SESSION_UPLOAD_DIR = Path("data/session_uploads")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -99,6 +100,11 @@ def _sanitize_upload_filename(filename: str) -> str:
     return sanitized
 
 
+def _sanitize_path_segment(value: str) -> str:
+    sanitized = SAFE_FILENAME_PATTERN.sub("_", value.strip()).strip(" .")
+    return sanitized
+
+
 def _extract_single_uploaded_file(body: bytes, boundary: str) -> tuple[str, bytes] | None:
     boundary_marker = f"--{boundary}".encode("utf-8")
 
@@ -127,6 +133,13 @@ def _extract_single_uploaded_file(body: bytes, boundary: str) -> tuple[str, byte
             return filename, content.rstrip(b"\r\n")
 
     return None
+
+
+def _validate_supported_upload_filename(filename: str) -> None:
+    suffix = Path(filename).suffix.lower()
+    if suffix not in SUPPORTED_EXTENSIONS:
+        supported = ", ".join(sorted(SUPPORTED_EXTENSIONS))
+        raise HTTPException(status_code=400, detail=f"Unsupported file type. Supported types: {supported}")
 
 
 @app.on_event("startup")
@@ -316,10 +329,7 @@ async def upload_knowledge_file_api(request: Request):
     if not filename:
         raise HTTPException(status_code=400, detail="Invalid filename")
 
-    suffix = Path(filename).suffix.lower()
-    if suffix not in SUPPORTED_EXTENSIONS:
-        supported = ", ".join(sorted(SUPPORTED_EXTENSIONS))
-        raise HTTPException(status_code=400, detail=f"Unsupported file type. Supported types: {supported}")
+    _validate_supported_upload_filename(filename)
 
     knowledge_path = Path(KNOWLEDGE_DIR).resolve()
     destination = (knowledge_path / filename).resolve()
@@ -332,6 +342,55 @@ async def upload_knowledge_file_api(request: Request):
 
     return {
         "filename": filename,
+        "status": "uploaded_and_indexed",
+    }
+
+
+@app.post("/sessions/{session_id}/attachments")
+async def upload_session_attachment_api(session_id: str, request: Request):
+    if not session_exists(session_id):
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    content_type = request.headers.get("content-type", "")
+    boundary = _extract_multipart_boundary(content_type)
+    if not boundary:
+        raise HTTPException(status_code=400, detail="Expected multipart file upload")
+
+    uploaded_file = _extract_single_uploaded_file(await request.body(), boundary)
+    if uploaded_file is None:
+        raise HTTPException(status_code=400, detail="No file was uploaded")
+
+    original_filename, file_content = uploaded_file
+    filename = _sanitize_upload_filename(original_filename)
+    safe_session_id = _sanitize_path_segment(session_id)
+    if not filename or not safe_session_id:
+        raise HTTPException(status_code=400, detail="Invalid upload target")
+
+    _validate_supported_upload_filename(filename)
+
+    upload_root = SESSION_UPLOAD_DIR.resolve()
+    session_path = (upload_root / safe_session_id).resolve()
+    destination = (session_path / filename).resolve()
+    if upload_root not in destination.parents or session_path not in destination.parents:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    session_path.mkdir(parents=True, exist_ok=True)
+    destination.write_bytes(file_content)
+
+    documents = load_file_documents(destination)
+    stored_chunk_count = ingest_documents(
+        documents,
+        extra_metadata={
+            "session_id": session_id,
+            "scope": "session",
+        },
+    )
+    if not stored_chunk_count:
+        raise HTTPException(status_code=400, detail="No indexable content found in uploaded file")
+
+    return {
+        "filename": filename,
+        "session_id": session_id,
         "status": "uploaded_and_indexed",
     }
 

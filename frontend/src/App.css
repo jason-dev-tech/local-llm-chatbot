@@ -286,6 +286,111 @@ button {
   font-size: 14px;
 }
 
+.session-attachment-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: #f9fafb;
+  color: #374151;
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.session-attachment-toggle:hover:enabled {
+  border-color: #d1d5db;
+  background: #f3f4f6;
+}
+
+.session-attachment-toggle:disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.session-attachment-menu {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 0;
+  width: min(360px, calc(100vw - 40px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+  z-index: 5;
+}
+
+.session-attachment-title {
+  color: #1f2937;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.session-attachment-help,
+.session-attachment-filename,
+.session-attachment-status {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.session-attachment-menu input {
+  width: 100%;
+  font-size: 13px;
+}
+
+.session-attachment-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.session-attachment-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.session-attachment-menu button {
+  border: none;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #2563eb;
+  color: white;
+  font-weight: 600;
+  min-width: 88px;
+}
+
+.session-attachment-menu button:hover:enabled {
+  background: #1d4ed8;
+}
+
+.session-attachment-menu button:disabled {
+  background: #93c5fd;
+  cursor: not-allowed;
+}
+
+.session-attachment-status.uploading {
+  color: #2563eb;
+}
+
+.session-attachment-status.success {
+  color: #166534;
+}
+
+.session-attachment-status.error {
+  color: #991b1b;
+}
+
 .message-list {
   flex: 1;
   overflow-y: auto;
@@ -339,28 +444,49 @@ button {
 .chat-input-area {
   display: flex;
   gap: 12px;
-  padding: 16px 20px;
+  padding: 12px 20px;
   border-top: 1px solid #e5e7eb;
   background: white;
   align-items: flex-end;
 }
 
-.chat-input-area textarea {
+.chat-input-field {
+  position: relative;
   flex: 1;
-  resize: vertical;
-  min-height: 72px;
-  max-height: 180px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
   border: 1px solid #d1d5db;
   border-radius: 10px;
-  padding: 12px;
-  outline: none;
+  padding: 6px;
+  background: white;
 }
 
-.chat-input-area textarea:focus {
+.chat-input-field:focus-within {
   border-color: #60a5fa;
 }
 
-.chat-input-area button {
+.session-attachment-control {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.chat-input-area textarea {
+  flex: 1;
+  resize: vertical;
+  min-height: 36px;
+  max-height: 180px;
+  border: none;
+  padding: 8px 4px;
+  outline: none;
+}
+
+.chat-input-area textarea:disabled {
+  background: white;
+}
+
+.chat-input-area .send-button {
   border: none;
   border-radius: 10px;
   padding: 12px 18px;
@@ -370,11 +496,11 @@ button {
   min-width: 110px;
 }
 
-.chat-input-area button:hover:enabled {
+.chat-input-area .send-button:hover:enabled {
   background: #1d4ed8;
 }
 
-.chat-input-area button:disabled {
+.chat-input-area .send-button:disabled {
   background: #93c5fd;
   cursor: not-allowed;
 }

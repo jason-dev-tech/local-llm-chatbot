@@ -165,6 +165,42 @@ export async function uploadKnowledgeDocument(file: File): Promise<KnowledgeUplo
 }
 
 /**
+ * Upload a document for the current chat session
+ */
+export async function uploadSessionDocument(
+  sessionId: string,
+  file: File,
+): Promise<KnowledgeUploadResult> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const res = await fetch(`${API_BASE}/sessions/${sessionId}/attachments`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    let message = "Failed to attach document";
+
+    try {
+      const payload = await res.json();
+      if (payload && typeof payload === "object" && "detail" in payload) {
+        const detail = (payload as { detail?: unknown }).detail;
+        if (typeof detail === "string" && detail.trim()) {
+          message = detail;
+        }
+      }
+    } catch {
+      // Keep the default message when the response is not JSON.
+    }
+
+    throw new Error(message);
+  }
+
+  return res.json();
+}
+
+/**
  * Rename session
  */
 export async function renameSession(sessionId: string, title: string): Promise<void> {

@@ -354,6 +354,26 @@ def load_pdf_documents(file_path: Path) -> list[dict]:
     return documents
 
 
+def load_file_documents(file_path: Path) -> list[dict]:
+    suffix = file_path.suffix.lower()
+    if suffix not in SUPPORTED_EXTENSIONS:
+        return []
+
+    if suffix == ".txt":
+        content = load_text_file(file_path)
+    elif suffix == ".md":
+        content = load_markdown_file(file_path)
+    elif suffix == ".pdf":
+        return load_pdf_documents(file_path)
+    elif suffix == ".json":
+        return load_json_documents(file_path)
+    else:
+        return []
+
+    source_metadata = build_source_metadata(file_path)
+    return [{**source_metadata, "content": content}]
+
+
 def load_documents() -> list[dict]:
     knowledge_path = Path(KNOWLEDGE_DIR)
     documents = []
@@ -370,21 +390,7 @@ def load_documents() -> list[dict]:
         if suffix not in SUPPORTED_EXTENSIONS:
             continue
 
-        if suffix == ".txt":
-            content = load_text_file(file_path)
-        elif suffix == ".md":
-            content = load_markdown_file(file_path)
-        elif suffix == ".pdf":
-            documents.extend(load_pdf_documents(file_path))
-            continue
-        elif suffix == ".json":
-            documents.extend(load_json_documents(file_path))
-            continue
-        else:
-            continue
-
-        source_metadata = build_source_metadata(file_path)
-        documents.append({**source_metadata, "content": content})
+        documents.extend(load_file_documents(file_path))
 
     documents.extend(load_json_api_documents(manifest_path))
 

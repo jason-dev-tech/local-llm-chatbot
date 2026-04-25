@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { FormEvent } from "react";
+import type { ChangeEvent, FormEvent } from "react";
 import "./App.css";
 
 import type { SessionItem, MessageItem } from "./types";
@@ -11,6 +11,7 @@ import {
   streamChat,
   renameSession,
   deleteSession,
+  uploadSessionDocument,
 } from "./api/chat";
 import SessionSidebar from "./components/SessionSidebar";
 import ChatInput from "./components/ChatInput";
@@ -28,8 +29,15 @@ function App() {
   const [errorMessage, setErrorMessage] = useState("");
   const [isSystemReady, setIsSystemReady] = useState<boolean | null>(null);
   const [systemNotReadyReason, setSystemNotReadyReason] = useState<string | null>(null);
+  const [selectedSessionFile, setSelectedSessionFile] = useState<File | null>(null);
+  const [sessionUploadStatus, setSessionUploadStatus] = useState("");
+  const [sessionUploadStatusType, setSessionUploadStatusType] = useState<"uploading" | "success" | "error" | "">("");
+  const [isUploadingSessionFile, setIsUploadingSessionFile] = useState(false);
+  const [isSessionAttachmentOpen, setIsSessionAttachmentOpen] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const sessionFileInputRef = useRef<HTMLInputElement | null>(null);
+  const sessionAttachmentRef = useRef<HTMLDivElement | null>(null);
 
   const currentSession = useMemo(() => {
     return (
@@ -52,6 +60,30 @@ function App() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, isSending]);
+
+  useEffect(() => {
+    if (!isSessionAttachmentOpen) {
+      return;
+    }
+
+    function handleDocumentMouseDown(event: MouseEvent) {
+      const target = event.target;
+
+      if (
+        target instanceof Node
+        && sessionAttachmentRef.current
+        && !sessionAttachmentRef.current.contains(target)
+      ) {
+        setIsSessionAttachmentOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleDocumentMouseDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentMouseDown);
+    };
+  }, [isSessionAttachmentOpen]);
 
   function classifyErrorMessage(rawMessage: string | null | undefined): string {
     const normalized = (rawMessage || "").toLowerCase();
@@ -454,6 +486,38 @@ function App() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }
 
+  function handleSessionFileChange(event: ChangeEvent<HTMLInputElement>) {
+    setSelectedSessionFile(event.target.files?.[0] ?? null);
+    setSessionUploadStatus("");
+    setSessionUploadStatusType("");
+  }
+
+  async function handleSessionUploadClick() {
+    if (!currentSessionId || !selectedSessionFile || isUploadingSessionFile) {
+      return;
+    }
+
+    setIsUploadingSessionFile(true);
+    setSessionUploadStatus("Uploading...");
+    setSessionUploadStatusType("uploading");
+
+    try {
+      await uploadSessionDocument(currentSessionId, selectedSessionFile);
+      setSelectedSessionFile(null);
+      setSessionUploadStatus("Attached to this session.");
+      setSessionUploadStatusType("success");
+      if (sessionFileInputRef.current) {
+        sessionFileInputRef.current.value = "";
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Upload failed.";
+      setSessionUploadStatus(message);
+      setSessionUploadStatusType("error");
+    } finally {
+      setIsUploadingSessionFile(false);
+    }
+  }
+
   return (
     <div className="app">
       <SessionSidebar
@@ -505,6 +569,54 @@ function App() {
           input={input}
           isSending={isSending}
           disabled={!currentSessionId}
+          attachmentControls={
+            <div className="session-attachment-control" ref={sessionAttachmentRef}>
+              <button
+                type="button"
+                className="session-attachment-toggle"
+                onClick={() => setIsSessionAttachmentOpen((isOpen) => !isOpen)}
+                disabled={!currentSessionId}
+              >
+                +
+              </button>
+              {isSessionAttachmentOpen ? (
+                <div className="session-attachment-menu">
+                  <div className="session-attachment-copy">
+                    <div className="session-attachment-title">Session document</div>
+                    <div className="session-attachment-help">
+                      Available only in this chat session. TXT, MD, JSON, PDF.
+                    </div>
+                  </div>
+                  <div className="session-attachment-picker">
+                    <input
+                      ref={sessionFileInputRef}
+                      type="file"
+                      accept=".txt,.md,.json,.pdf"
+                      onChange={handleSessionFileChange}
+                      disabled={!currentSessionId || isUploadingSessionFile}
+                    />
+                    <div className="session-attachment-filename">
+                      {selectedSessionFile ? selectedSessionFile.name : "No file selected"}
+                    </div>
+                  </div>
+                  <div className="session-attachment-footer">
+                    <button
+                      type="button"
+                      onClick={handleSessionUploadClick}
+                      disabled={!currentSessionId || isUploadingSessionFile || !selectedSessionFile}
+                    >
+                      Attach
+                    </button>
+                    {sessionUploadStatus ? (
+                      <div className={`session-attachment-status ${sessionUploadStatusType}`}>
+                        {sessionUploadStatus}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          }
           onInputChange={setInput}
           onSubmit={handleSendMessage}
         />
