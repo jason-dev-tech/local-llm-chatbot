@@ -307,8 +307,9 @@ function App() {
             return updated;
           });
         },
-        async () => {
+        async (streamMetadata) => {
           const responseTimeSeconds = (performance.now() - responseStartedAt) / 1000;
+          const retrievalScope = streamMetadata.retrieval_scope;
 
           if (!hasReceivedToken) {
             setMessages((prev) => {
@@ -339,6 +340,7 @@ function App() {
               messagesWithResponseTime[responseTimeIndex] = {
                 ...messagesWithResponseTime[responseTimeIndex],
                 responseTimeSeconds,
+                retrievalScope,
               };
             }
 
@@ -358,6 +360,7 @@ function App() {
                 updated[targetAssistantIndex] = {
                   ...updated[targetAssistantIndex],
                   responseTimeSeconds,
+                  retrievalScope,
                 };
               }
 

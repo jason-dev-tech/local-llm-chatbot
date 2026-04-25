@@ -108,6 +108,7 @@ The RAG path is orchestrated with LangGraph:
 - Tool routing architecture across chat, RAG, and direct tool execution
 - Streaming responses across chat, RAG, and retrieval-based summarization for consistent real-time UX
 - Client-side response time display for each assistant response
+- Retrieval scope indicator for global knowledge versus session context
 - Local-first LLM integration through an OpenAI-compatible endpoint
 - Script-based evaluation coverage for routing, retrieval behavior, citations, guardrails, and tools
 

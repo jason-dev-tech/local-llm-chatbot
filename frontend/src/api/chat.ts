@@ -18,6 +18,10 @@ export type KnowledgeUploadResult = {
   status: string;
 };
 
+export type ChatStreamDoneMetadata = {
+  retrieval_scope?: "global" | "session";
+};
+
 const API_BASE =
   window.__APP_CONFIG__?.apiBaseUrl?.trim() ||
   import.meta.env.VITE_API_BASE_URL?.trim() ||
@@ -197,7 +201,7 @@ export async function streamChat(
   sessionId: string,
   message: string,
   onToken: (token: string) => void,
-  onDone?: () => void,
+  onDone?: (metadata: ChatStreamDoneMetadata) => void,
   onError?: (errorMessage: string) => void
 ): Promise<void> {
   const res = await fetch(`${API_BASE}/chat/stream`, {
@@ -239,7 +243,12 @@ export async function streamChat(
         if (data.type === "token") {
           onToken(data.content);
         } else if (data.type === "done") {
-          onDone?.();
+          onDone?.({
+            retrieval_scope:
+              data.retrieval_scope === "global" || data.retrieval_scope === "session"
+                ? data.retrieval_scope
+                : undefined,
+          });
         } else if (data.type === "error") {
           onError?.(data.message);
         }

@@ -44,6 +44,7 @@ Routing, retrieval, validation, retry behavior, citations, and source attributio
 - Chat, RAG, and retrieval-based summarization responses stream incrementally
 - UI support for source attribution sections returned by the backend
 - Client-side response time display for completed assistant responses
+- Retrieval scope indicator for global knowledge versus session context
 - Sidebar knowledge upload UI with selected-file, uploading, success, and error states
 - Session-based chat workflow with persistent backend storage
 - Frontend remains thin while AI orchestration stays in backend services

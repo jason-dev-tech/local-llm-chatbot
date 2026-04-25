@@ -264,16 +264,29 @@ def chat_stream_api(request: ChatStreamRequest):
         raise HTTPException(status_code=400, detail="Message cannot be empty")
 
     def event_stream():
+        response_metadata = {}
+
+        def update_response_metadata(metadata):
+            response_metadata.update(
+                {
+                    key: value
+                    for key, value in metadata.items()
+                    if value is not None
+                }
+            )
+
         try:
-            for token in send_message_and_stream(request.session_id, message):
+            for token in send_message_and_stream(
+                request.session_id,
+                message,
+                metadata_callback=update_response_metadata,
+            ):
                 yield json.dumps({
                     "type": "token",
                     "content": token,
                 }) + "\n"
 
-            yield json.dumps({
-                "type": "done",
-            }) + "\n"
+            yield json.dumps({"type": "done", **response_metadata}) + "\n"
 
         except Exception as e:
             yield json.dumps({

@@ -152,32 +152,13 @@ function getAssistantTransparencyStatus(
   return null;
 }
 
-function getAssistantSystemStatus(
-  content: string,
-  sourceSections: Array<{ title: string; items: string[] }>,
-  transparencyStatus: AssistantTransparencyStatus | null,
-): string | null {
-  const normalized = content.trim();
-  if (!normalized || normalized === "Thinking..." || normalized.startsWith("Error:")) {
-    return null;
+function getRetrievalScopeLabel(scope: MessageItem["retrievalScope"]): string | null {
+  if (scope === "session") {
+    return "Using session context";
   }
 
-  if (transparencyStatus === "Limited supporting information") {
-    return null;
-  }
-
-  const hasSourcesUsedSection = sourceSections.some(
-    (section) => section.title.toLowerCase() === "sources used",
-  );
-  if (hasSourcesUsedSection) {
-    return "From knowledge base";
-  }
-
-  const hasRetrievedContextSection = sourceSections.some(
-    (section) => section.title.toLowerCase() === "retrieved context",
-  );
-  if (hasRetrievedContextSection) {
-    return "Retrieved context";
+  if (scope === "global") {
+    return "Using global knowledge";
   }
 
   return null;
@@ -210,8 +191,8 @@ function MessageList({
           const transparencyStatus = isAssistant
             ? getAssistantTransparencyStatus(message.content, sourceSections)
             : null;
-          const systemStatus = isAssistant
-            ? getAssistantSystemStatus(message.content, sourceSections, transparencyStatus)
+          const retrievalScopeLabel = isAssistant
+            ? getRetrievalScopeLabel(message.retrievalScope)
             : null;
           const canRetry = (
             isAssistant
@@ -229,16 +210,16 @@ function MessageList({
               </div>
 
               <div className="message-content markdown-body">
-                {(transparencyStatus || systemStatus) && (
+                {(transparencyStatus || retrievalScopeLabel) && (
                   <div className="message-status-row">
                     {transparencyStatus && (
                       <div className="message-status-badge">
                         {transparencyStatus}
                       </div>
                     )}
-                    {systemStatus && (
+                    {retrievalScopeLabel && (
                       <div className="message-status-badge message-status-badge-secondary">
-                        {systemStatus}
+                        {retrievalScopeLabel}
                       </div>
                     )}
                   </div>

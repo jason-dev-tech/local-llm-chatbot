@@ -9,6 +9,7 @@ export type MessageItem = {
   content: string;
   created_at?: string;
   responseTimeSeconds?: number;
+  retrievalScope?: "global" | "session";
 };
 
 export type AssistantTransparencyStatus =

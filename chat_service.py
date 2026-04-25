@@ -132,6 +132,18 @@ def get_retrieved_filenames(chunks):
     return list(dict.fromkeys(filenames))
 
 
+def get_retrieval_scope(session_id, chunks):
+    if not chunks:
+        return None
+
+    for chunk in chunks:
+        chunk_session_id = chunk.get("metadata", {}).get("session_id")
+        if isinstance(chunk_session_id, str) and chunk_session_id.strip() == session_id:
+            return "session"
+
+    return "global"
+
+
 def get_used_source_labels(answer, chunks):
     cited_source_numbers = extract_cited_source_numbers(answer)
     if not cited_source_numbers:
@@ -765,7 +777,7 @@ def maybe_update_session_title(session_id, user_input):
         pass
 
 
-def send_message_and_stream(session_id, user_input):
+def send_message_and_stream(session_id, user_input, metadata_callback=None):
     started_at = time.perf_counter()
     route = None
     tool_name = None
@@ -867,6 +879,8 @@ def send_message_and_stream(session_id, user_input):
                 retrieval_latency_ms=retrieval_latency_ms,
                 llm_generation_latency_ms=llm_generation_latency_ms,
             )
+            if metadata_callback is not None:
+                metadata_callback({"retrieval_scope": get_retrieval_scope(session_id, chunks)})
             return
 
         llm_tool_result = maybe_run_llm_routed_tool(user_input)
@@ -975,6 +989,8 @@ def send_message_and_stream(session_id, user_input):
                 retrieval_latency_ms=retrieval_latency_ms,
                 llm_generation_latency_ms=llm_generation_latency_ms,
             )
+            if metadata_callback is not None:
+                metadata_callback({"retrieval_scope": get_retrieval_scope(session_id, chunks)})
             yield answer
             return
 
@@ -997,6 +1013,8 @@ def send_message_and_stream(session_id, user_input):
             retrieval_latency_ms=retrieval_latency_ms,
             llm_generation_latency_ms=llm_generation_latency_ms,
         )
+        if metadata_callback is not None:
+            metadata_callback({"retrieval_scope": get_retrieval_scope(session_id, chunks)})
     except Exception as error:
         log_error_observability(session_id, user_input, route, tool_name, chunks, started_at, error)
         raise
