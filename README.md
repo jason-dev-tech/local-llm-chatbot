@@ -111,6 +111,8 @@ The RAG path is orchestrated with LangGraph:
 - Local-first LLM integration through an OpenAI-compatible endpoint
 - Script-based evaluation coverage for routing, retrieval behavior, citations, guardrails, and tools
 
+This project does not bundle any models. Model usage is subject to the respective model licenses.
+
 ## Repository Layout
 
 ```text

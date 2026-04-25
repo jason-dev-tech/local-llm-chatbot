@@ -45,6 +45,26 @@ def _build_filename_filter(file_filters: list[str] | None) -> dict | None:
     return {"$or": [{"filename": value} for value in normalized_filters]}
 
 
+def _combine_filters(*filters: dict | None) -> dict | None:
+    active_filters = [value for value in filters if value]
+    if not active_filters:
+        return None
+    if len(active_filters) == 1:
+        return active_filters[0]
+    return {"$and": active_filters}
+
+
+def _build_session_filter(session_id: str | None) -> dict | None:
+    if not isinstance(session_id, str) or not session_id.strip():
+        return None
+    return {"session_id": session_id.strip()}
+
+
+def _is_global_chunk(chunk: dict) -> bool:
+    session_id = chunk.get("metadata", {}).get("session_id")
+    return not isinstance(session_id, str) or not session_id.strip()
+
+
 def _tokenize(text: str) -> set[str]:
     return set(WORD_PATTERN.findall(text.lower()))
 
@@ -71,13 +91,13 @@ def _score_chunk(query_tokens: set[str], content: str, metadata: dict, source: s
     return (distance_score * 0.7) + (lexical_score * 0.3)
 
 
-def retrieve_relevant_chunks(query: str, top_k: int = 3, file_filters: list[str] | None = None) -> list[dict]:
+def _query_chunks(query: str, top_k: int, search_filter: dict | None) -> list[dict]:
     vector_store = _get_vector_store()
     candidate_k = _candidate_count(top_k)
     scored_documents = vector_store.similarity_search_with_score(
         query,
         k=candidate_k,
-        filter=_build_filename_filter(file_filters),
+        filter=search_filter,
     )
 
     query_tokens = _tokenize(query)
@@ -106,6 +126,34 @@ def retrieve_relevant_chunks(query: str, top_k: int = 3, file_filters: list[str]
     )
 
     return chunks[:top_k]
+
+
+def retrieve_relevant_chunks(
+    query: str,
+    top_k: int = 3,
+    file_filters: list[str] | None = None,
+    session_id: str | None = None,
+) -> list[dict]:
+    filename_filter = _build_filename_filter(file_filters)
+    session_filter = _build_session_filter(session_id)
+
+    if session_filter:
+        session_chunks = _query_chunks(
+            query,
+            top_k,
+            _combine_filters(filename_filter, session_filter),
+        )
+        if session_chunks:
+            return session_chunks
+
+        global_candidates = _query_chunks(
+            query,
+            max(top_k * 4, top_k),
+            filename_filter,
+        )
+        return [chunk for chunk in global_candidates if _is_global_chunk(chunk)][:top_k]
+
+    return _query_chunks(query, top_k, filename_filter)
 
 
 def build_context_text(chunks: list[dict]) -> str:

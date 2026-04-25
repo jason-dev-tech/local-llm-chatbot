@@ -446,6 +446,7 @@ def build_rag_messages(session_id, user_input):
         user_input,
         top_k=3,
         file_filters=extract_retrieval_file_filters(user_input),
+        session_id=session_id,
     )
     context_text = build_citation_context_text(chunks)
 
@@ -569,7 +570,7 @@ def get_effective_routing_decision(user_input):
     return heuristic_decision
 
 
-def build_retrieval_summary_request(user_input):
+def build_retrieval_summary_request(user_input, session_id=None):
     normalized = user_input.strip().lower()
     if not normalized.startswith("summarize") and not normalized.startswith("summary"):
         return None
@@ -590,6 +591,7 @@ def build_retrieval_summary_request(user_input):
         user_input,
         top_k=3,
         file_filters=extract_retrieval_file_filters(user_input),
+        session_id=session_id,
     )
     if not chunks:
         return {
@@ -628,8 +630,8 @@ def build_retrieval_summary_request(user_input):
     }
 
 
-def maybe_run_retrieval_summary(user_input):
-    summary_request = build_retrieval_summary_request(user_input)
+def maybe_run_retrieval_summary(user_input, session_id=None):
+    summary_request = build_retrieval_summary_request(user_input, session_id=session_id)
     if summary_request is None:
         return None
 
@@ -803,7 +805,7 @@ def send_message_and_stream(session_id, user_input):
             return
 
         retrieval_summary_started_at = time.perf_counter()
-        retrieval_summary_request = build_retrieval_summary_request(user_input)
+        retrieval_summary_request = build_retrieval_summary_request(user_input, session_id=session_id)
         if retrieval_summary_request is not None:
             route = "rag"
             chunks = retrieval_summary_request["chunks"]
@@ -940,6 +942,7 @@ def send_message_and_stream(session_id, user_input):
                 "user_input": user_input,
                 "history": history,
                 "file_filters": extract_retrieval_file_filters(user_input),
+                "session_id": session_id,
                 "mode": "stream",
             }
         )
@@ -1037,7 +1040,7 @@ def send_message(session_id, user_input):
             )
             return tool_result
 
-        retrieval_summary_result = maybe_run_retrieval_summary(user_input)
+        retrieval_summary_result = maybe_run_retrieval_summary(user_input, session_id=session_id)
         if retrieval_summary_result is not None:
             route = "rag"
             retrieval_started_at = time.perf_counter()
@@ -1045,6 +1048,7 @@ def send_message(session_id, user_input):
                 user_input,
                 top_k=3,
                 file_filters=extract_retrieval_file_filters(user_input),
+                session_id=session_id,
             )
             retrieval_latency_ms = elapsed_ms(retrieval_started_at)
             log_observability_event(
@@ -1147,6 +1151,7 @@ def send_message(session_id, user_input):
                 "user_input": user_input,
                 "history": history,
                 "file_filters": extract_retrieval_file_filters(user_input),
+                "session_id": session_id,
                 "mode": "sync",
             }
         )

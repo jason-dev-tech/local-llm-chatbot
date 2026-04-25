@@ -8,6 +8,7 @@ class RagWorkflowState(TypedDict, total=False):
     user_input: str
     history: list[dict]
     file_filters: list[str] | None
+    session_id: str | None
     chunks: list[dict]
     context_text: str
     evidence_sufficient: bool
@@ -54,7 +55,7 @@ def _generate_raw_answer(
 
 def build_rag_workflow(
     *,
-    retrieve_chunks: Callable[[str, int, list[str] | None], list[dict]],
+    retrieve_chunks: Callable[[str, int, list[str] | None, str | None], list[dict]],
     build_context_text: Callable[[list[dict]], str],
     build_system_prompt: Callable[[str, str], str],
     check_evidence: Callable[[str, list[dict]], bool],
@@ -71,6 +72,7 @@ def build_rag_workflow(
             state["user_input"],
             3,
             state.get("file_filters"),
+            state.get("session_id"),
         )
         context_text = build_context_text(chunks)
         system_prompt = build_system_prompt(context_text, state["user_input"])

@@ -48,6 +48,8 @@ Routing, retrieval, validation, retry behavior, citations, and source attributio
 - Session-based chat workflow with persistent backend storage
 - Frontend remains thin while AI orchestration stays in backend services
 
+This project does not bundle any models. Model usage is subject to the respective model licenses.
+
 ## Development
 
 Install dependencies:
