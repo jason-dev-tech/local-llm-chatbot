@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from config import KNOWLEDGE_DIR
-from db import init_db, get_all_sessions_with_titles, session_exists, get_session_messages
+from db import init_db, get_all_sessions_with_titles, session_exists, get_session_messages, save_message
 from operational.runtime_checks import run_backend_smoke_checks, validate_runtime_config
 from rag.ingest import ingest_documents, run_ingestion
 from rag.loaders import SUPPORTED_EXTENSIONS, load_file_documents
@@ -387,6 +387,8 @@ async def upload_session_attachment_api(session_id: str, request: Request):
     )
     if not stored_chunk_count:
         raise HTTPException(status_code=400, detail="No indexable content found in uploaded file")
+
+    save_message(session_id, "attachment", filename)
 
     return {
         "filename": filename,

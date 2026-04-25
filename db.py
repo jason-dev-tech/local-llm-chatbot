@@ -89,6 +89,7 @@ def get_recent_messages(session_id, limit=10):
         SELECT role, content
         FROM messages
         WHERE session_id = ?
+          AND role IN ('user', 'assistant')
         ORDER BY id DESC
         LIMIT ?
     """, (session_id, limit))
