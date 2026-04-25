@@ -9,7 +9,7 @@ load_dotenv()
 
 MODEL_NAME = os.getenv("MODEL_NAME", "local-model")
 BASE_URL = os.getenv("OPENAI_BASE_URL", "http://localhost:1234/v1")
-API_KEY = os.getenv("OPENAI_API_KEY", "lm-studio")
+API_KEY = os.getenv("OPENAI_API_KEY", "local-dev-key")
 DB_PATH = os.getenv("DB_PATH", "data/chat_store.db")
 SESSION_ID = os.getenv("SESSION_ID", "default")
 
