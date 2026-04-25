@@ -429,6 +429,14 @@ button {
   border: 1px solid #e5e7eb;
 }
 
+.message.attachment {
+  align-self: flex-end;
+  max-width: 72%;
+  border: 1px dashed #d1d5db;
+  background: #f9fafb;
+  color: #374151;
+}
+
 .message-role {
   font-size: 12px;
   font-weight: 700;

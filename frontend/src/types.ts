@@ -5,7 +5,7 @@ export type SessionItem = {
 
 export type MessageItem = {
   id?: number;
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "attachment";
   content: string;
   created_at?: string;
   responseTimeSeconds?: number;

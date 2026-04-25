@@ -182,6 +182,7 @@ function MessageList({
       ) : (
         messages.map((message, index) => {
           const isAssistant = message.role === "assistant";
+          const isAttachment = message.role === "attachment";
           const { mainContent, sourceSections } = isAssistant
             ? splitMessageContent(message.content)
             : {
@@ -206,10 +207,19 @@ function MessageList({
               className={`message ${message.role}`}
             >
               <div className="message-role">
-                {message.role === "user" ? "You" : "AI"}
+                {message.role === "user" ? "You" : isAttachment ? "Attachment" : "AI"}
               </div>
 
               <div className="message-content markdown-body">
+                {isAttachment ? (
+                  <div className="attachment-record">
+                    <div className="attachment-record-filename">{message.content}</div>
+                    <div className="attachment-record-detail">
+                      Available only in this session context.
+                    </div>
+                  </div>
+                ) : (
+                  <>
                 {(transparencyStatus || retrievalScopeLabel) && (
                   <div className="message-status-row">
                     {transparencyStatus && (
@@ -278,6 +288,8 @@ function MessageList({
                   <div className="response-time">
                     Response time: {message.responseTimeSeconds.toFixed(1)}s
                   </div>
+                )}
+                  </>
                 )}
               </div>
             </div>

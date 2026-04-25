@@ -502,7 +502,16 @@ function App() {
     setSessionUploadStatusType("uploading");
 
     try {
+      const attachedFilename = selectedSessionFile.name;
       await uploadSessionDocument(currentSessionId, selectedSessionFile);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "attachment",
+          content: attachedFilename,
+          created_at: new Date().toISOString(),
+        },
+      ]);
       setSelectedSessionFile(null);
       setSessionUploadStatus("Attached to this session.");
       setSessionUploadStatusType("success");

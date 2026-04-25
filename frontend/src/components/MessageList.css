@@ -51,3 +51,20 @@
   font-size: 12px;
   margin-top: 8px;
 }
+
+.attachment-record {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.attachment-record-filename {
+  color: #1f2937;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.attachment-record-detail {
+  color: #6b7280;
+  font-size: 12px;
+}
