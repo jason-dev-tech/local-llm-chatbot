@@ -70,7 +70,7 @@ def _tokenize(text: str) -> set[str]:
 
 
 def _candidate_count(top_k: int) -> int:
-    return max(top_k, top_k * 2)
+    return max(top_k, top_k * 4)
 
 
 def _build_rerank_text(content: str, metadata: dict, source: str) -> str:
@@ -125,7 +125,35 @@ def _query_chunks(query: str, top_k: int, search_filter: dict | None) -> list[di
         )
     )
 
-    return chunks[:top_k]
+    return _diversify_chunks_by_source(chunks, top_k)
+
+
+def _diversify_chunks_by_source(chunks: list[dict], top_k: int) -> list[dict]:
+    if top_k <= 0:
+        return []
+
+    selected = []
+    selected_sources = set()
+
+    for chunk in chunks:
+        source = chunk.get("source") or resolve_chunk_source(chunk)
+        if source in selected_sources:
+            continue
+
+        selected.append(chunk)
+        selected_sources.add(source)
+        if len(selected) == top_k:
+            return selected
+
+    for chunk in chunks:
+        if chunk in selected:
+            continue
+
+        selected.append(chunk)
+        if len(selected) == top_k:
+            break
+
+    return selected
 
 
 def retrieve_relevant_chunks(
