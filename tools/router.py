@@ -50,6 +50,22 @@ class ToolRoutingDecision:
     confidence: float
 
 
+@dataclass(frozen=True)
+class ToolWorkflowPlan:
+    steps: list[str]
+    tool_input: str
+    reason: str
+    confidence: float
+
+
+@dataclass(frozen=True)
+class ToolWorkflowResult:
+    output: str
+    tools_used: list[str]
+    reason: str
+    confidence: float
+
+
 def normalize_summarize_input(tool_input: str) -> str:
     normalized = tool_input.strip()
     return SUMMARIZE_INPUT_PREFIX_PATTERN.sub("", normalized).strip()
@@ -212,42 +228,104 @@ def get_tool_routing_decision(user_input: str) -> ToolRoutingDecision:
     )
 
 
-def maybe_run_tool(user_input: str) -> str | None:
+def plan_tool_workflow(user_input: str) -> ToolWorkflowPlan | None:
     decision = get_tool_routing_decision(user_input)
     if decision.tool_name == SUMMARIZE_REWRITE_TOOL_NAME:
+        return ToolWorkflowPlan(
+            steps=[SUMMARIZE_TOOL_NAME, REWRITE_TOOL_NAME],
+            tool_input=decision.tool_input or "",
+            reason=decision.reason,
+            confidence=decision.confidence,
+        )
+
+    if decision.tool_name in {SUMMARIZE_TOOL_NAME, REWRITE_TOOL_NAME, EXTRACT_ENTITIES_TOOL_NAME}:
+        return ToolWorkflowPlan(
+            steps=[decision.tool_name],
+            tool_input=decision.tool_input or "",
+            reason=decision.reason,
+            confidence=decision.confidence,
+        )
+
+    return None
+
+
+def run_tool_workflow(user_input: str) -> ToolWorkflowResult | None:
+    plan = plan_tool_workflow(user_input)
+    if plan is None:
+        return None
+
+    if plan.steps == [SUMMARIZE_TOOL_NAME, REWRITE_TOOL_NAME]:
         summarize_tool = get_tool(SUMMARIZE_TOOL_NAME)
         rewrite_tool = get_tool(REWRITE_TOOL_NAME)
         if summarize_tool is None or rewrite_tool is None:
             return None
-        if not decision.tool_input:
-            return "Please provide text to summarize."
+        if not plan.tool_input:
+            return ToolWorkflowResult(
+                output="Please provide text to summarize.",
+                tools_used=[],
+                reason=plan.reason,
+                confidence=plan.confidence,
+            )
 
-        summary = summarize_tool.run(decision.tool_input)
+        summary = summarize_tool.run(plan.tool_input)
         if not summary.strip():
-            return "Please provide text to summarize."
+            return ToolWorkflowResult(
+                output="Please provide text to summarize.",
+                tools_used=[SUMMARIZE_TOOL_NAME],
+                reason=plan.reason,
+                confidence=plan.confidence,
+            )
 
-        return rewrite_tool.run(summary)
+        return ToolWorkflowResult(
+            output=rewrite_tool.run(summary),
+            tools_used=plan.steps,
+            reason=plan.reason,
+            confidence=plan.confidence,
+        )
 
-    if decision.tool_name not in {SUMMARIZE_TOOL_NAME, REWRITE_TOOL_NAME}:
-        if decision.tool_name != EXTRACT_ENTITIES_TOOL_NAME:
-            return None
-
-    tool = get_tool(decision.tool_name)
+    tool_name = plan.steps[0]
+    tool = get_tool(tool_name)
     if tool is None:
         return None
 
-    if decision.tool_name == REWRITE_TOOL_NAME and (
-        not decision.tool_input or not INFORMATIVE_CHARACTER_PATTERN.search(decision.tool_input)
+    if tool_name == REWRITE_TOOL_NAME and (
+        not plan.tool_input or not INFORMATIVE_CHARACTER_PATTERN.search(plan.tool_input)
     ):
-        return "Please provide text to rewrite."
+        return ToolWorkflowResult(
+            output="Please provide text to rewrite.",
+            tools_used=[],
+            reason=plan.reason,
+            confidence=plan.confidence,
+        )
 
-    if not decision.tool_input:
-        if decision.tool_name == SUMMARIZE_TOOL_NAME:
-            return "Please provide text to summarize."
-        if decision.tool_name == REWRITE_TOOL_NAME:
-            return "Please provide text to rewrite."
-        if decision.tool_name == EXTRACT_ENTITIES_TOOL_NAME:
-            return "Please provide text to extract entities from."
+    if not plan.tool_input:
+        if tool_name == SUMMARIZE_TOOL_NAME:
+            output = "Please provide text to summarize."
+        elif tool_name == REWRITE_TOOL_NAME:
+            output = "Please provide text to rewrite."
+        elif tool_name == EXTRACT_ENTITIES_TOOL_NAME:
+            output = "Please provide text to extract entities from."
+        else:
+            return None
+
+        return ToolWorkflowResult(
+            output=output,
+            tools_used=[],
+            reason=plan.reason,
+            confidence=plan.confidence,
+        )
+
+    return ToolWorkflowResult(
+        output=tool.run(plan.tool_input),
+        tools_used=[tool_name],
+        reason=plan.reason,
+        confidence=plan.confidence,
+    )
+
+
+def maybe_run_tool(user_input: str) -> str | None:
+    result = run_tool_workflow(user_input)
+    if result is None:
         return None
 
-    return tool.run(decision.tool_input)
+    return result.output

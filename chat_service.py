@@ -30,7 +30,7 @@ from rag.router import get_routing_decision
 from rag.source_metadata import resolve_chunk_source
 from routing.llm_router import get_llm_routing_decision
 from tools.registry import get_tool
-from tools.router import get_tool_routing_decision, maybe_run_tool
+from tools.router import run_tool_workflow
 
 SYSTEM_PROMPT = "You are a helpful assistant. Answer clearly and concisely."
 INSUFFICIENT_EVIDENCE_RESPONSE = (
@@ -169,6 +169,7 @@ def log_response_observability(
     route_decision_latency_ms=None,
     retrieval_latency_ms=None,
     llm_generation_latency_ms=None,
+    tool_steps=None,
 ):
     payload = {
         "session_id": session_id,
@@ -188,6 +189,8 @@ def log_response_observability(
         payload["retrieval_latency_ms"] = retrieval_latency_ms
     if llm_generation_latency_ms is not None:
         payload["llm_generation_latency_ms"] = llm_generation_latency_ms
+    if tool_steps:
+        payload["tool_steps"] = tool_steps
 
     log_observability_event("response", **payload)
 
@@ -219,12 +222,10 @@ def log_error_observability(session_id, user_query, route, tool_name, chunks, st
     )
 
 
-def get_tool_name_for_query(user_input, tool_result):
-    if isinstance(tool_result, str) and tool_result.startswith("{"):
-        return "extract_entities"
-
-    decision = get_tool_routing_decision(user_input)
-    return decision.tool_name
+def get_primary_tool_name(tools_used):
+    if tools_used:
+        return " -> ".join(tools_used)
+    return None
 
 
 def get_response_mode(route, tool_name, *, evidence_sufficient=None):
@@ -797,17 +798,20 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
 
         maybe_update_session_title(session_id, user_input)
 
-        tool_result = maybe_run_tool(user_input)
-        if tool_result is not None:
+        tool_workflow_result = run_tool_workflow(user_input)
+        if tool_workflow_result is not None:
             route = "tool"
-            tool_name = get_tool_name_for_query(user_input, tool_result)
+            tool_name = get_primary_tool_name(tool_workflow_result.tools_used)
             log_observability_event(
                 "route",
                 session_id=session_id,
                 user_query=user_input,
                 effective_route=route,
                 tool_used=tool_name,
+                tool_steps=tool_workflow_result.tools_used,
+                tool_plan_reason=tool_workflow_result.reason,
             )
+            tool_result = tool_workflow_result.output
             save_message(session_id, "assistant", tool_result)
             log_response_observability(
                 session_id,
@@ -818,6 +822,7 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
                 tool_result,
                 started_at,
                 "tool",
+                tool_steps=tool_workflow_result.tools_used,
             )
             yield tool_result
             return
@@ -1040,17 +1045,20 @@ def send_message(session_id, user_input):
 
         maybe_update_session_title(session_id, user_input)
 
-        tool_result = maybe_run_tool(user_input)
-        if tool_result is not None:
+        tool_workflow_result = run_tool_workflow(user_input)
+        if tool_workflow_result is not None:
             route = "tool"
-            tool_name = get_tool_name_for_query(user_input, tool_result)
+            tool_name = get_primary_tool_name(tool_workflow_result.tools_used)
             log_observability_event(
                 "route",
                 session_id=session_id,
                 user_query=user_input,
                 effective_route=route,
                 tool_used=tool_name,
+                tool_steps=tool_workflow_result.tools_used,
+                tool_plan_reason=tool_workflow_result.reason,
             )
+            tool_result = tool_workflow_result.output
             save_message(session_id, "assistant", tool_result)
             log_response_observability(
                 session_id,
@@ -1061,6 +1069,7 @@ def send_message(session_id, user_input):
                 tool_result,
                 started_at,
                 "tool",
+                tool_steps=tool_workflow_result.tools_used,
             )
             return tool_result
 
