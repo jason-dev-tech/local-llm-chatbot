@@ -238,6 +238,27 @@ def get_response_mode(route, tool_name, *, evidence_sufficient=None):
     return "chat"
 
 
+def build_response_explanation(session_id, route, chunks, tool_steps=None):
+    tool_steps = tool_steps or []
+    source_count = len(extract_source_list(chunks)) if chunks else 0
+
+    if route == "rag":
+        scope = get_retrieval_scope(session_id, chunks)
+        scope_label = "session context" if scope == "session" else "global knowledge"
+        if source_count:
+            return (
+                f"Retrieval was used with {scope_label}. "
+                f"The answer was grounded in {source_count} source{'s' if source_count != 1 else ''}."
+            )
+
+        return "Retrieval was used, but no sufficient supporting sources were found."
+
+    if tool_steps:
+        return f"Retrieval was not used. A tool workflow was used: {' -> '.join(tool_steps)}."
+
+    return "Retrieval was not used. No tool workflow was used."
+
+
 def build_source_map(chunks):
     source_map = {}
 
@@ -801,14 +822,15 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
         tool_workflow_result = run_tool_workflow(user_input)
         if tool_workflow_result is not None:
             route = "tool"
-            tool_name = get_primary_tool_name(tool_workflow_result.tools_used)
+            tool_steps = list(tool_workflow_result.tools_used)
+            tool_name = get_primary_tool_name(tool_steps)
             log_observability_event(
                 "route",
                 session_id=session_id,
                 user_query=user_input,
                 effective_route=route,
                 tool_used=tool_name,
-                tool_steps=tool_workflow_result.tools_used,
+                tool_steps=tool_steps,
                 tool_plan_reason=tool_workflow_result.reason,
             )
             tool_result = tool_workflow_result.output
@@ -822,8 +844,20 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
                 tool_result,
                 started_at,
                 "tool",
-                tool_steps=tool_workflow_result.tools_used,
+                tool_steps=tool_steps,
             )
+            if metadata_callback is not None:
+                metadata_callback(
+                    {
+                        "response_explanation": build_response_explanation(
+                            session_id,
+                            route,
+                            chunks,
+                            tool_steps,
+                        ),
+                        "tool_steps": tool_steps,
+                    }
+                )
             yield tool_result
             return
 
@@ -891,7 +925,12 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
                 llm_generation_latency_ms=llm_generation_latency_ms,
             )
             if metadata_callback is not None:
-                metadata_callback({"retrieval_scope": get_retrieval_scope(session_id, chunks)})
+                metadata_callback(
+                    {
+                        "retrieval_scope": get_retrieval_scope(session_id, chunks),
+                        "response_explanation": build_response_explanation(session_id, route, chunks),
+                    }
+                )
             return
 
         llm_tool_result = maybe_run_llm_routed_tool(user_input)
@@ -916,6 +955,18 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
                 started_at,
                 get_response_mode(route, tool_name, evidence_sufficient=None),
             )
+            if metadata_callback is not None:
+                metadata_callback(
+                    {
+                        "response_explanation": build_response_explanation(
+                            session_id,
+                            route,
+                            chunks,
+                            [tool_name],
+                        ),
+                        "tool_steps": [tool_name],
+                    }
+                )
             yield llm_tool_result
             return
 
@@ -960,6 +1011,12 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
                 route_decision_latency_ms=route_decision_latency_ms,
                 llm_generation_latency_ms=llm_generation_latency_ms,
             )
+            if metadata_callback is not None:
+                metadata_callback(
+                    {
+                        "response_explanation": build_response_explanation(session_id, route, chunks),
+                    }
+                )
             return
 
         workflow_state = yield from invoke_rag_workflow_stream(
@@ -1001,7 +1058,12 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
                 llm_generation_latency_ms=llm_generation_latency_ms,
             )
             if metadata_callback is not None:
-                metadata_callback({"retrieval_scope": get_retrieval_scope(session_id, chunks)})
+                metadata_callback(
+                    {
+                        "retrieval_scope": get_retrieval_scope(session_id, chunks),
+                        "response_explanation": build_response_explanation(session_id, route, chunks),
+                    }
+                )
             yield answer
             return
 
@@ -1025,7 +1087,12 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
             llm_generation_latency_ms=llm_generation_latency_ms,
         )
         if metadata_callback is not None:
-            metadata_callback({"retrieval_scope": get_retrieval_scope(session_id, chunks)})
+            metadata_callback(
+                {
+                    "retrieval_scope": get_retrieval_scope(session_id, chunks),
+                    "response_explanation": build_response_explanation(session_id, route, chunks),
+                }
+            )
     except Exception as error:
         log_error_observability(session_id, user_input, route, tool_name, chunks, started_at, error)
         raise
@@ -1048,14 +1115,15 @@ def send_message(session_id, user_input):
         tool_workflow_result = run_tool_workflow(user_input)
         if tool_workflow_result is not None:
             route = "tool"
-            tool_name = get_primary_tool_name(tool_workflow_result.tools_used)
+            tool_steps = list(tool_workflow_result.tools_used)
+            tool_name = get_primary_tool_name(tool_steps)
             log_observability_event(
                 "route",
                 session_id=session_id,
                 user_query=user_input,
                 effective_route=route,
                 tool_used=tool_name,
-                tool_steps=tool_workflow_result.tools_used,
+                tool_steps=tool_steps,
                 tool_plan_reason=tool_workflow_result.reason,
             )
             tool_result = tool_workflow_result.output
@@ -1069,7 +1137,7 @@ def send_message(session_id, user_input):
                 tool_result,
                 started_at,
                 "tool",
-                tool_steps=tool_workflow_result.tools_used,
+                tool_steps=tool_steps,
             )
             return tool_result
 

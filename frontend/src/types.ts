@@ -10,6 +10,7 @@ export type MessageItem = {
   created_at?: string;
   responseTimeSeconds?: number;
   retrievalScope?: "global" | "session";
+  responseExplanation?: string;
 };
 
 export type AssistantTransparencyStatus =

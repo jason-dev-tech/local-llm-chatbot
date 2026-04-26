@@ -27,6 +27,10 @@ SUMMARIZE_THEN_REWRITE_PATTERN = re.compile(
     r"^(?:summarize|summary)\s+(?:this text:|the following(?: text)?:)?\s*(.+?)\s+and then\s+rewrite(?: it)?(?: more clearly| professionally| clearly)?\s*:\s*(.+)$",
     re.IGNORECASE,
 )
+COMBINED_SUMMARIZE_REWRITE_INTENT_PATTERN = re.compile(
+    r"^(?:summarize|summary)\b.*\b(?:rewrite|rephrase|formalize|formal|formally|professional|professionally|clearer|clearly)\b",
+    re.IGNORECASE,
+)
 SUMMARIZE_INPUT_PREFIX_PATTERN = re.compile(
     r"^(?:this text:|the following text:|text:)\s*",
     re.IGNORECASE,
@@ -96,18 +100,34 @@ def _get_structured_query_type(user_input: str) -> str | None:
 
 
 def _extract_summarize_then_rewrite_input(user_input: str) -> str | None:
-    match = SUMMARIZE_THEN_REWRITE_PATTERN.match(user_input.strip())
-    if not match:
+    normalized = user_input.strip()
+    match = SUMMARIZE_THEN_REWRITE_PATTERN.match(normalized)
+    if match:
+        prefix_text = normalize_summarize_input(match.group(1))
+        main_text = match.group(2).strip()
+
+        if prefix_text and not main_text:
+            main_text = prefix_text
+
+        return main_text.strip() or None
+
+    if not COMBINED_SUMMARIZE_REWRITE_INTENT_PATTERN.search(normalized):
         return None
 
-    prefix_text = normalize_summarize_input(match.group(1))
-    main_text = match.group(2).strip()
+    _instruction, separator, remainder = normalized.partition(":")
+    if separator:
+        return remainder.strip()
 
-    if prefix_text and not main_text:
-        main_text = prefix_text
+    lowered = normalized.lower()
+    if lowered in {
+        "summarize and rewrite",
+        "summarize then rewrite",
+        "summary and rewrite",
+        "summary then rewrite",
+    }:
+        return ""
 
-    normalized_text = main_text.strip()
-    return normalized_text or None
+    return None
 
 
 def get_tool_routing_decision(user_input: str) -> ToolRoutingDecision:

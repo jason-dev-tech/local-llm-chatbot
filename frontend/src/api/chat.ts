@@ -20,6 +20,7 @@ export type KnowledgeUploadResult = {
 
 export type ChatStreamDoneMetadata = {
   retrieval_scope?: "global" | "session";
+  response_explanation?: string;
 };
 
 const API_BASE =
@@ -283,6 +284,10 @@ export async function streamChat(
             retrieval_scope:
               data.retrieval_scope === "global" || data.retrieval_scope === "session"
                 ? data.retrieval_scope
+                : undefined,
+            response_explanation:
+              typeof data.response_explanation === "string"
+                ? data.response_explanation
                 : undefined,
           });
         } else if (data.type === "error") {

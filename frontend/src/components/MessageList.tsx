@@ -289,6 +289,12 @@ function MessageList({
                     Response time: {message.responseTimeSeconds.toFixed(1)}s
                   </div>
                 )}
+
+                {isAssistant && message.responseExplanation && (
+                  <div className="response-explanation">
+                    {message.responseExplanation}
+                  </div>
+                )}
                   </>
                 )}
               </div>
