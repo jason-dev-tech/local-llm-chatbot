@@ -1,0 +1,39 @@
+[
+  {
+    "id": "route_metadata_chat_001",
+    "query": "Hello",
+    "expected_route": "chat",
+    "expected_response_mode": "chat",
+    "expected_retrieval_scope": null,
+    "expected_tool_steps": [],
+    "expected_source_count": null
+  },
+  {
+    "id": "route_metadata_rag_existing_knowledge_001",
+    "query": "What does RAG stand for?",
+    "note": "Requires the existing indexed knowledge used by retrieval_test_cases.json retrieval_001.",
+    "expected_route": "rag",
+    "expected_response_mode": "rag_response",
+    "expected_retrieval_scope": "global",
+    "expected_tool_steps": [],
+    "min_source_count": 1
+  },
+  {
+    "id": "route_metadata_tool_001",
+    "query": "summarize: Retrieval-Augmented Generation improves grounded answers.",
+    "expected_route": "tool",
+    "expected_response_mode": "tool",
+    "expected_retrieval_scope": null,
+    "expected_tool_steps": ["summarize_text"],
+    "expected_source_count": null
+  },
+  {
+    "id": "route_metadata_tool_workflow_001",
+    "query": "Summarize this text and rewrite it formally: Retrieval-Augmented Generation combines retrieval with generation. It improves grounding and answer quality.",
+    "expected_route": "tool",
+    "expected_response_mode": "tool",
+    "expected_retrieval_scope": null,
+    "expected_tool_steps": ["summarize_text", "rewrite_text"],
+    "expected_source_count": null
+  }
+]
