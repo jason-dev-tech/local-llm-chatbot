@@ -166,8 +166,18 @@ npm run dev
 
 ### Docker Compose
 
+Start a local OpenAI-compatible model server before launching Docker Compose. Model files are not bundled with this project.
+
+Configure the model endpoint with `.env` or environment variables, especially `OPENAI_BASE_URL`, `MODEL_NAME`, and `EMBEDDING_MODEL`.
+
 ```bash
 docker compose up --build
+```
+
+Check backend readiness:
+
+```bash
+curl http://127.0.0.1:8001/ready
 ```
 
 Backend in Docker Compose:
