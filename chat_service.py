@@ -259,6 +259,29 @@ def build_response_explanation(session_id, route, chunks, tool_steps=None):
     return "Retrieval was not used. No tool workflow was used."
 
 
+def build_route_metadata(
+    session_id,
+    route,
+    response_mode,
+    chunks,
+    *,
+    tool_steps=None,
+    route_reason=None,
+    route_confidence=None,
+):
+    normalized_route = route if route in {"chat", "rag", "tool"} else "chat"
+
+    return {
+        "route": normalized_route,
+        "response_mode": response_mode,
+        "retrieval_scope": get_retrieval_scope(session_id, chunks),
+        "tool_steps": tool_steps or [],
+        "route_reason": route_reason,
+        "route_confidence": route_confidence,
+        "source_count": len(extract_source_list(chunks)) if normalized_route == "rag" else None,
+    }
+
+
 def build_source_map(chunks):
     source_map = {}
 
@@ -810,6 +833,8 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
     route = None
     tool_name = None
     chunks = []
+    route_reason = None
+    route_confidence = None
     route_decision_latency_ms = None
     retrieval_latency_ms = None
     llm_generation_latency_ms = None
@@ -824,6 +849,8 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
             route = "tool"
             tool_steps = list(tool_workflow_result.tools_used)
             tool_name = get_primary_tool_name(tool_steps)
+            route_reason = tool_workflow_result.reason
+            route_confidence = tool_workflow_result.confidence
             log_observability_event(
                 "route",
                 session_id=session_id,
@@ -847,6 +874,7 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
                 tool_steps=tool_steps,
             )
             if metadata_callback is not None:
+                response_mode = "tool"
                 metadata_callback(
                     {
                         "response_explanation": build_response_explanation(
@@ -856,6 +884,15 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
                             tool_steps,
                         ),
                         "tool_steps": tool_steps,
+                        "route_metadata": build_route_metadata(
+                            session_id,
+                            route,
+                            response_mode,
+                            chunks,
+                            tool_steps=tool_steps,
+                            route_reason=route_reason,
+                            route_confidence=route_confidence,
+                        ),
                     }
                 )
             yield tool_result
@@ -908,6 +945,11 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
 
             llm_generation_latency_ms = elapsed_ms(llm_generation_started_at)
             save_message(session_id, "assistant", retrieval_summary_result)
+            response_mode = get_response_mode(
+                route,
+                None,
+                evidence_sufficient=has_usable_retrieval_evidence(user_input, chunks),
+            )
             log_response_observability(
                 session_id,
                 user_input,
@@ -916,11 +958,7 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
                 chunks,
                 retrieval_summary_result,
                 started_at,
-                get_response_mode(
-                    route,
-                    None,
-                    evidence_sufficient=has_usable_retrieval_evidence(user_input, chunks),
-                ),
+                response_mode,
                 retrieval_latency_ms=retrieval_latency_ms,
                 llm_generation_latency_ms=llm_generation_latency_ms,
             )
@@ -929,6 +967,12 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
                     {
                         "retrieval_scope": get_retrieval_scope(session_id, chunks),
                         "response_explanation": build_response_explanation(session_id, route, chunks),
+                        "route_metadata": build_route_metadata(
+                            session_id,
+                            route,
+                            response_mode,
+                            chunks,
+                        ),
                     }
                 )
             return
@@ -956,15 +1000,24 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
                 get_response_mode(route, tool_name, evidence_sufficient=None),
             )
             if metadata_callback is not None:
+                tool_steps = [tool_name]
+                response_mode = get_response_mode(route, tool_name, evidence_sufficient=None)
                 metadata_callback(
                     {
                         "response_explanation": build_response_explanation(
                             session_id,
                             route,
                             chunks,
-                            [tool_name],
+                            tool_steps,
                         ),
-                        "tool_steps": [tool_name],
+                        "tool_steps": tool_steps,
+                        "route_metadata": build_route_metadata(
+                            session_id,
+                            route,
+                            response_mode,
+                            chunks,
+                            tool_steps=tool_steps,
+                        ),
                     }
                 )
             yield llm_tool_result
@@ -975,6 +1028,8 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
         decision = get_effective_routing_decision(user_input)
         route_decision_latency_ms = elapsed_ms(route_started_at)
         route = decision.route
+        route_reason = decision.reason
+        route_confidence = decision.confidence
         log_observability_event(
             "route",
             session_id=session_id,
@@ -999,6 +1054,7 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
             answer = "".join(answer_parts)
             answer = normalize_answer_body(answer)
             save_message(session_id, "assistant", answer)
+            response_mode = get_response_mode(route, None, evidence_sufficient=None)
             log_response_observability(
                 session_id,
                 user_input,
@@ -1007,7 +1063,7 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
                 chunks,
                 answer,
                 started_at,
-                get_response_mode(route, None, evidence_sufficient=None),
+                response_mode,
                 route_decision_latency_ms=route_decision_latency_ms,
                 llm_generation_latency_ms=llm_generation_latency_ms,
             )
@@ -1015,6 +1071,14 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
                 metadata_callback(
                     {
                         "response_explanation": build_response_explanation(session_id, route, chunks),
+                        "route_metadata": build_route_metadata(
+                            session_id,
+                            route,
+                            response_mode,
+                            chunks,
+                            route_reason=route_reason,
+                            route_confidence=route_confidence,
+                        ),
                     }
                 )
             return
@@ -1044,6 +1108,7 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
             log_guardrail_observability(session_id, user_input, route, chunks, started_at)
             answer = workflow_state.get("final_answer", INSUFFICIENT_EVIDENCE_RESPONSE)
             save_message(session_id, "assistant", answer)
+            response_mode = get_response_mode(route, None, evidence_sufficient=False)
             log_response_observability(
                 session_id,
                 user_input,
@@ -1052,7 +1117,7 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
                 chunks,
                 answer,
                 started_at,
-                get_response_mode(route, None, evidence_sufficient=False),
+                response_mode,
                 route_decision_latency_ms=route_decision_latency_ms,
                 retrieval_latency_ms=retrieval_latency_ms,
                 llm_generation_latency_ms=llm_generation_latency_ms,
@@ -1062,6 +1127,14 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
                     {
                         "retrieval_scope": get_retrieval_scope(session_id, chunks),
                         "response_explanation": build_response_explanation(session_id, route, chunks),
+                        "route_metadata": build_route_metadata(
+                            session_id,
+                            route,
+                            response_mode,
+                            chunks,
+                            route_reason=route_reason,
+                            route_confidence=route_confidence,
+                        ),
                     }
                 )
             yield answer
@@ -1069,6 +1142,11 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
 
         answer = workflow_state.get("final_answer", "")
         save_message(session_id, "assistant", answer)
+        response_mode = get_response_mode(
+            route,
+            None,
+            evidence_sufficient=True,
+        )
         log_response_observability(
             session_id,
             user_input,
@@ -1077,11 +1155,7 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
             chunks,
             answer,
             started_at,
-            get_response_mode(
-                route,
-                None,
-                evidence_sufficient=True,
-            ),
+            response_mode,
             route_decision_latency_ms=route_decision_latency_ms,
             retrieval_latency_ms=retrieval_latency_ms,
             llm_generation_latency_ms=llm_generation_latency_ms,
@@ -1091,6 +1165,14 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
                 {
                     "retrieval_scope": get_retrieval_scope(session_id, chunks),
                     "response_explanation": build_response_explanation(session_id, route, chunks),
+                    "route_metadata": build_route_metadata(
+                        session_id,
+                        route,
+                        response_mode,
+                        chunks,
+                        route_reason=route_reason,
+                        route_confidence=route_confidence,
+                    ),
                 }
             )
     except Exception as error:

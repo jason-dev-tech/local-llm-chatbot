@@ -343,6 +343,7 @@ function App() {
           const responseTimeSeconds = (performance.now() - responseStartedAt) / 1000;
           const retrievalScope = streamMetadata.retrieval_scope;
           const responseExplanation = streamMetadata.response_explanation;
+          const routeMetadata = streamMetadata.route_metadata;
 
           if (!hasReceivedToken) {
             setMessages((prev) => {
@@ -375,6 +376,7 @@ function App() {
                 responseTimeSeconds,
                 retrievalScope,
                 responseExplanation,
+                routeMetadata,
               };
             }
 
@@ -396,6 +398,7 @@ function App() {
                   responseTimeSeconds,
                   retrievalScope,
                   responseExplanation,
+                  routeMetadata,
                 };
               }
 

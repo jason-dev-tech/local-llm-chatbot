@@ -1,4 +1,4 @@
-import type { SessionItem, MessageItem } from "../types";
+import type { SessionItem, MessageItem, RouteMetadata } from "../types";
 
 declare global {
   interface Window {
@@ -21,12 +21,49 @@ export type KnowledgeUploadResult = {
 export type ChatStreamDoneMetadata = {
   retrieval_scope?: "global" | "session";
   response_explanation?: string;
+  route_metadata?: RouteMetadata;
 };
 
 const API_BASE =
   window.__APP_CONFIG__?.apiBaseUrl?.trim() ||
   import.meta.env.VITE_API_BASE_URL?.trim() ||
   "http://127.0.0.1:8000";
+
+function parseRouteMetadata(value: unknown): RouteMetadata | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const metadata = value as Record<string, unknown>;
+  const route = metadata.route;
+  const toolSteps = metadata.tool_steps;
+
+  if (route !== "chat" && route !== "rag" && route !== "tool") {
+    return undefined;
+  }
+
+  if (typeof metadata.response_mode !== "string") {
+    return undefined;
+  }
+
+  return {
+    route,
+    response_mode: metadata.response_mode,
+    retrieval_scope:
+      metadata.retrieval_scope === "global" || metadata.retrieval_scope === "session"
+        ? metadata.retrieval_scope
+        : null,
+    tool_steps: Array.isArray(toolSteps)
+      ? toolSteps.filter((step): step is string => typeof step === "string")
+      : [],
+    route_reason:
+      typeof metadata.route_reason === "string" ? metadata.route_reason : null,
+    route_confidence:
+      typeof metadata.route_confidence === "number" ? metadata.route_confidence : null,
+    source_count:
+      typeof metadata.source_count === "number" ? metadata.source_count : null,
+  };
+}
 
 /**
  * Get all sessions
@@ -289,6 +326,7 @@ export async function streamChat(
               typeof data.response_explanation === "string"
                 ? data.response_explanation
                 : undefined,
+            route_metadata: parseRouteMetadata(data.route_metadata),
           });
         } else if (data.type === "error") {
           onError?.(data.message);
