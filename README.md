@@ -1,6 +1,6 @@
 # Local-First AI Chatbot
 
-A local-first AI chatbot with a FastAPI backend and a React + Vite frontend. The system supports multi-session chat, multi-source RAG over local documents, inline citations with source attribution, tool routing, and a LangGraph-orchestrated RAG workflow with validation and a controlled single retry.
+A local-first AI chatbot with a FastAPI backend and a React + Vite frontend. The system supports multi-session chat, multi-source RAG over local documents, session-scoped document context, inline citations with source attribution, lightweight tool workflows, and a LangGraph-orchestrated RAG workflow with validation and a controlled single retry.
 
 ## Project Purpose
 
@@ -22,7 +22,7 @@ User requests flow through a backend routing layer that selects one of three pat
 
 The non-RAG paths remain procedural:
 - Chat requests go through direct model interaction
-- Tool requests go through a registry-based tool routing layer
+- Tool requests go through a registry-based planner/executor that supports one-step tools and a small `summarize_text -> rewrite_text` workflow
 
 The RAG path is orchestrated with LangGraph:
 1. Retrieve relevant chunks from ChromaDB
@@ -37,6 +37,7 @@ The RAG path is orchestrated with LangGraph:
 ### Backend
 - FastAPI API for sessions, chat, streaming, readiness, and session management
 - Knowledge document upload endpoint for supported local RAG sources
+- Session-scoped document attachment endpoint for chat-specific retrieval context
 - Procedural chat orchestration in the backend service layer
 - Registry-based tool execution for summarization, rewriting, and entity extraction
 - Runtime readiness and operational checks
@@ -46,6 +47,8 @@ The RAG path is orchestrated with LangGraph:
 - Document chunking and embedding generation
 - ChromaDB-backed vector retrieval
 - Metadata-aware filtering for explicit file references
+- Session-aware retrieval that prioritizes session context before global knowledge
+- Source-diverse retrieval selection to support multi-document answers
 - LangGraph workflow for retrieval, evidence check, generation, validation, and retry
 - Inline citation insertion and structured source attribution
 
@@ -55,12 +58,15 @@ The RAG path is orchestrated with LangGraph:
 - Parses PDFs with PyPDF and expands structured JSON content into retrievable records
 - Optionally loads JSON API sources from `knowledge/api_sources.json`
 - Chunks content, generates embeddings, and stores vectors plus metadata in ChromaDB
+- Session attachments are indexed with session metadata and are not added to the shared knowledge base
 
 ### Frontend
 - React UI for multi-session chat
 - Sidebar knowledge upload UI for adding documents to the RAG knowledge base
+- Compact chat composer control for attaching documents to the current session
 - Streaming NDJSON response handling
 - Markdown rendering for assistant responses
+- Lightweight response metadata display for retrieval scope, response time, and answer explanation
 - Session create, rename, delete, and reload flows
 
 ### Observability / Monitoring
@@ -105,11 +111,12 @@ The RAG path is orchestrated with LangGraph:
 - Multi-source RAG system over local documents and structured JSON content
 - LangGraph-based workflow orchestration for the retrieval pipeline
 - Deterministic validation and single controlled retry in the RAG path
-- Tool routing architecture across chat, RAG, and direct tool execution
+- Tool routing architecture across chat, RAG, direct tool execution, and a small deterministic tool workflow
 - Streaming responses across chat, RAG, and retrieval-based summarization for consistent real-time UX
 - Client-side response time display for each assistant response
 - Retrieval scope indicator for global knowledge versus session context
 - Session-scoped document attachment for chat-specific retrieval context
+- Concise assistant response explanation metadata for retrieval/tool usage
 - Local-first LLM integration through an OpenAI-compatible endpoint
 - Script-based evaluation coverage for routing, retrieval behavior, citations, guardrails, and tools
 
@@ -211,6 +218,7 @@ Key settings:
 - `KNOWLEDGE_DIR`
 - `CHROMA_PERSIST_DIR`
 - `RAG_COLLECTION_NAME`
+- `JSON_API_MANIFEST_PATH`
 - `CHUNK_SIZE`
 - `CHUNK_OVERLAP`
 
@@ -223,6 +231,8 @@ The knowledge pipeline prepares local content for retrieval:
 - Stores vectors and metadata in ChromaDB
 
 Documents can also be uploaded from the frontend sidebar. Uploaded TXT, MD, JSON, and PDF files are saved into the configured knowledge directory, indexed into ChromaDB, and become available for future RAG retrieval. This is knowledge ingestion for the shared knowledge base, not a one-time chat attachment.
+
+Documents can also be attached from the chat composer to the current session. Session attachments are saved under local session upload storage, indexed into ChromaDB with session metadata, persisted as lightweight attachment records in chat history, and used only for that session's retrieval context.
 
 Run ingestion:
 
@@ -251,6 +261,11 @@ Verify document upload and retrieval:
 1. Upload a supported document from the sidebar.
 2. Ask a question related to the uploaded content.
 3. Confirm the answer cites the uploaded source.
+
+Verify session attachment retrieval:
+1. Attach a supported document from the chat composer.
+2. Ask a question related to that document in the same session.
+3. Confirm the answer indicates session context and cites the attached source.
 
 Why it matters:
 - Confirms the model endpoint, embeddings, storage, and runtime dependencies are available before interactive use
@@ -284,6 +299,8 @@ Why it matters:
 
 This repository uses script-based evaluation rather than a formal test framework.
 
+The scripts cover routing, retrieval source matching, RAG response checks, tool behavior, guardrail behavior, answer quality heuristics, citation formatting, and source attribution.
+
 Examples:
 
 ```bash
@@ -301,6 +318,7 @@ python evals/run_answer_quality_evals.py
 - No formal testing framework is implemented; `pytest`, `jest`, and similar frameworks are not present
 - Evaluation is script-based and is not CI-integrated yet
 - The system is local-first and not set up for cloud deployment
+- Authentication, authorization, rate limiting, and production hardening are not implemented
 - Document ingestion is limited to the formats implemented in the repository, including PDF support via PyPDF
 
 ## License / Usage

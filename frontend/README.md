@@ -20,7 +20,9 @@ The frontend is responsible for:
 - Sending chat requests to the backend
 - Handling NDJSON streaming responses
 - Uploading selected knowledge documents from the sidebar
+- Attaching selected documents to the current chat session from the composer
 - Rendering assistant output with Markdown support
+- Rendering backend response metadata such as retrieval scope, response time, answer explanation, and source attribution
 
 Routing, retrieval, validation, retry behavior, citations, and source attribution all remain backend responsibilities.
 
@@ -45,7 +47,8 @@ Routing, retrieval, validation, retry behavior, citations, and source attributio
 - UI support for source attribution sections returned by the backend
 - Client-side response time display for completed assistant responses
 - Retrieval scope indicator for global knowledge versus session context
-- Current-session document attachment UI for chat-specific retrieval context
+- Current-session document attachment UI with persisted attachment records in chat history
+- Concise assistant explanation display for retrieval/tool usage
 - Sidebar knowledge upload UI with selected-file, uploading, success, and error states
 - Session-based chat workflow with persistent backend storage
 - Frontend remains thin while AI orchestration stays in backend services
@@ -96,6 +99,8 @@ The sidebar includes a minimal knowledge document upload control. The frontend s
 
 Upload state is limited to the selected filename plus concise uploading, success, and error messages. Chat streaming behavior is unchanged.
 
+The chat composer also includes a compact session attachment control. It sends one selected TXT, MD, JSON, or PDF file to `POST /sessions/{session_id}/attachments`, shows upload state, clears the selected file after success, and displays a lightweight attachment record in the chat history. Session attachments are available only to the current chat session.
+
 ## Docker
 
 The production image builds the Vite app and serves the static output with Nginx.
@@ -112,7 +117,7 @@ Why it matters:
 ## Observability / Monitoring
 
 Observability is backend-driven.
-- The frontend renders streaming output and source attribution returned by the API
+- The frontend renders streaming output, source attribution, retrieval scope, response time, and concise response explanation metadata returned by the API
 - Monitoring, structured logs, and metrics aggregation remain backend concerns
 
 Why it matters:
