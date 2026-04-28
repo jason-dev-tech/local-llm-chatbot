@@ -334,6 +334,72 @@ def _collect_retrieval_metrics(retrieval_events: list[dict]) -> dict:
     }
 
 
+def _collect_route_metadata_metrics(response_events: list[dict]) -> dict:
+    retrieval_scope_counter = Counter()
+    tool_step_chain_counter = Counter()
+    route_reason_counter = Counter()
+    source_counts = []
+    route_confidences = []
+
+    for event in response_events:
+        route_metadata = event.get("route_metadata")
+        if not isinstance(route_metadata, dict):
+            continue
+
+        retrieval_scope = route_metadata.get("retrieval_scope")
+        if isinstance(retrieval_scope, str) and retrieval_scope:
+            retrieval_scope_counter[retrieval_scope] += 1
+        else:
+            retrieval_scope_counter["none"] += 1
+
+        tool_steps = route_metadata.get("tool_steps")
+        if isinstance(tool_steps, list):
+            steps = [
+                step
+                for step in tool_steps
+                if isinstance(step, str) and step.strip()
+            ]
+            if steps:
+                tool_step_chain_counter[" -> ".join(steps)] += 1
+
+        route_reason = route_metadata.get("route_reason")
+        if isinstance(route_reason, str) and route_reason.strip():
+            route_reason_counter[route_reason.strip()] += 1
+
+        if route_metadata.get("route") == "rag":
+            source_count = route_metadata.get("source_count")
+            if isinstance(source_count, int):
+                source_counts.append(source_count)
+
+        route_confidence = route_metadata.get("route_confidence")
+        if isinstance(route_confidence, (int, float)):
+            route_confidences.append(float(route_confidence))
+
+    return {
+        "event_count": sum(
+            1
+            for event in response_events
+            if isinstance(event.get("route_metadata"), dict)
+        ),
+        "retrieval_scope_distribution": retrieval_scope_counter,
+        "tool_step_chain_frequency": tool_step_chain_counter,
+        "route_reason_frequency": route_reason_counter,
+        "average_rag_source_count": _safe_mean(source_counts),
+        "route_confidence": {
+            "count": len(route_confidences),
+            "average": _safe_mean(route_confidences),
+            "p50": _percentile(route_confidences, 0.50),
+            "p95": _percentile(route_confidences, 0.95),
+        },
+    }
+
+
+def _format_number(value: float | None) -> str:
+    if value is None:
+        return "n/a"
+    return f"{value:.2f}"
+
+
 def build_metrics_report(events: list[dict]) -> str:
     if not events:
         return (
@@ -356,6 +422,7 @@ def build_metrics_report(events: list[dict]) -> str:
     session_metrics = _collect_session_metrics(response_events, error_events)
     query_metrics = _collect_query_metrics(response_events, error_events, retrieval_events)
     retrieval_metrics = _collect_retrieval_metrics(retrieval_events)
+    route_metadata_metrics = _collect_route_metadata_metrics(response_events)
     stage_latency_metrics = {
         "route_decision": _collect_latency_summary(response_events, "route_decision_latency_ms"),
         "retrieval": _collect_latency_summary(response_events, "retrieval_latency_ms"),
@@ -436,6 +503,24 @@ def build_metrics_report(events: list[dict]) -> str:
             "",
             "Tool usage frequency",
             *_format_count_map(response_metrics["tool_usage"]),
+            "",
+            "Route metadata metrics",
+            f"- Response events with route_metadata: {route_metadata_metrics['event_count']}",
+            "- Retrieval scope distribution:",
+            *_format_count_map(route_metadata_metrics["retrieval_scope_distribution"]),
+            "- Tool step chain frequency:",
+            *_format_count_map(route_metadata_metrics["tool_step_chain_frequency"]),
+            f"- Average source count for RAG responses: "
+            f"{_format_number(route_metadata_metrics['average_rag_source_count'])}",
+            "- Route reason frequency:",
+            *_format_count_map(route_metadata_metrics["route_reason_frequency"]),
+            (
+                "- Route confidence: "
+                f"count={route_metadata_metrics['route_confidence']['count']}, "
+                f"avg={_format_number(route_metadata_metrics['route_confidence']['average'])}, "
+                f"p50={_format_number(route_metadata_metrics['route_confidence']['p50'])}, "
+                f"p95={_format_number(route_metadata_metrics['route_confidence']['p95'])}"
+            ),
             "",
             "Session usage metrics",
             f"- Active session count: {session_metrics['active_session_count']}",

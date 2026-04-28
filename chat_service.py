@@ -170,6 +170,7 @@ def log_response_observability(
     retrieval_latency_ms=None,
     llm_generation_latency_ms=None,
     tool_steps=None,
+    route_metadata=None,
 ):
     payload = {
         "session_id": session_id,
@@ -191,6 +192,8 @@ def log_response_observability(
         payload["llm_generation_latency_ms"] = llm_generation_latency_ms
     if tool_steps:
         payload["tool_steps"] = tool_steps
+    if route_metadata is not None:
+        payload["route_metadata"] = route_metadata
 
     log_observability_event("response", **payload)
 
@@ -862,6 +865,16 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
             )
             tool_result = tool_workflow_result.output
             save_message(session_id, "assistant", tool_result)
+            response_mode = "tool"
+            route_metadata = build_route_metadata(
+                session_id,
+                route,
+                response_mode,
+                chunks,
+                tool_steps=tool_steps,
+                route_reason=route_reason,
+                route_confidence=route_confidence,
+            )
             log_response_observability(
                 session_id,
                 user_input,
@@ -870,11 +883,11 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
                 chunks,
                 tool_result,
                 started_at,
-                "tool",
+                response_mode,
                 tool_steps=tool_steps,
+                route_metadata=route_metadata,
             )
             if metadata_callback is not None:
-                response_mode = "tool"
                 metadata_callback(
                     {
                         "response_explanation": build_response_explanation(
@@ -884,15 +897,7 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
                             tool_steps,
                         ),
                         "tool_steps": tool_steps,
-                        "route_metadata": build_route_metadata(
-                            session_id,
-                            route,
-                            response_mode,
-                            chunks,
-                            tool_steps=tool_steps,
-                            route_reason=route_reason,
-                            route_confidence=route_confidence,
-                        ),
+                        "route_metadata": route_metadata,
                     }
                 )
             yield tool_result
@@ -950,6 +955,12 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
                 None,
                 evidence_sufficient=has_usable_retrieval_evidence(user_input, chunks),
             )
+            route_metadata = build_route_metadata(
+                session_id,
+                route,
+                response_mode,
+                chunks,
+            )
             log_response_observability(
                 session_id,
                 user_input,
@@ -961,18 +972,14 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
                 response_mode,
                 retrieval_latency_ms=retrieval_latency_ms,
                 llm_generation_latency_ms=llm_generation_latency_ms,
+                route_metadata=route_metadata,
             )
             if metadata_callback is not None:
                 metadata_callback(
                     {
                         "retrieval_scope": get_retrieval_scope(session_id, chunks),
                         "response_explanation": build_response_explanation(session_id, route, chunks),
-                        "route_metadata": build_route_metadata(
-                            session_id,
-                            route,
-                            response_mode,
-                            chunks,
-                        ),
+                        "route_metadata": route_metadata,
                     }
                 )
             return
@@ -981,6 +988,15 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
         if llm_tool_result is not None:
             route = "tool"
             tool_name = SUMMARIZE_TOOL_NAME
+            tool_steps = [tool_name]
+            response_mode = get_response_mode(route, tool_name, evidence_sufficient=None)
+            route_metadata = build_route_metadata(
+                session_id,
+                route,
+                response_mode,
+                chunks,
+                tool_steps=tool_steps,
+            )
             log_observability_event(
                 "route",
                 session_id=session_id,
@@ -997,11 +1013,10 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
                 chunks,
                 llm_tool_result,
                 started_at,
-                get_response_mode(route, tool_name, evidence_sufficient=None),
+                response_mode,
+                route_metadata=route_metadata,
             )
             if metadata_callback is not None:
-                tool_steps = [tool_name]
-                response_mode = get_response_mode(route, tool_name, evidence_sufficient=None)
                 metadata_callback(
                     {
                         "response_explanation": build_response_explanation(
@@ -1011,13 +1026,7 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
                             tool_steps,
                         ),
                         "tool_steps": tool_steps,
-                        "route_metadata": build_route_metadata(
-                            session_id,
-                            route,
-                            response_mode,
-                            chunks,
-                            tool_steps=tool_steps,
-                        ),
+                        "route_metadata": route_metadata,
                     }
                 )
             yield llm_tool_result
@@ -1055,6 +1064,14 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
             answer = normalize_answer_body(answer)
             save_message(session_id, "assistant", answer)
             response_mode = get_response_mode(route, None, evidence_sufficient=None)
+            route_metadata = build_route_metadata(
+                session_id,
+                route,
+                response_mode,
+                chunks,
+                route_reason=route_reason,
+                route_confidence=route_confidence,
+            )
             log_response_observability(
                 session_id,
                 user_input,
@@ -1066,19 +1083,13 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
                 response_mode,
                 route_decision_latency_ms=route_decision_latency_ms,
                 llm_generation_latency_ms=llm_generation_latency_ms,
+                route_metadata=route_metadata,
             )
             if metadata_callback is not None:
                 metadata_callback(
                     {
                         "response_explanation": build_response_explanation(session_id, route, chunks),
-                        "route_metadata": build_route_metadata(
-                            session_id,
-                            route,
-                            response_mode,
-                            chunks,
-                            route_reason=route_reason,
-                            route_confidence=route_confidence,
-                        ),
+                        "route_metadata": route_metadata,
                     }
                 )
             return
@@ -1109,6 +1120,14 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
             answer = workflow_state.get("final_answer", INSUFFICIENT_EVIDENCE_RESPONSE)
             save_message(session_id, "assistant", answer)
             response_mode = get_response_mode(route, None, evidence_sufficient=False)
+            route_metadata = build_route_metadata(
+                session_id,
+                route,
+                response_mode,
+                chunks,
+                route_reason=route_reason,
+                route_confidence=route_confidence,
+            )
             log_response_observability(
                 session_id,
                 user_input,
@@ -1121,20 +1140,14 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
                 route_decision_latency_ms=route_decision_latency_ms,
                 retrieval_latency_ms=retrieval_latency_ms,
                 llm_generation_latency_ms=llm_generation_latency_ms,
+                route_metadata=route_metadata,
             )
             if metadata_callback is not None:
                 metadata_callback(
                     {
                         "retrieval_scope": get_retrieval_scope(session_id, chunks),
                         "response_explanation": build_response_explanation(session_id, route, chunks),
-                        "route_metadata": build_route_metadata(
-                            session_id,
-                            route,
-                            response_mode,
-                            chunks,
-                            route_reason=route_reason,
-                            route_confidence=route_confidence,
-                        ),
+                        "route_metadata": route_metadata,
                     }
                 )
             yield answer
@@ -1146,6 +1159,14 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
             route,
             None,
             evidence_sufficient=True,
+        )
+        route_metadata = build_route_metadata(
+            session_id,
+            route,
+            response_mode,
+            chunks,
+            route_reason=route_reason,
+            route_confidence=route_confidence,
         )
         log_response_observability(
             session_id,
@@ -1159,20 +1180,14 @@ def send_message_and_stream(session_id, user_input, metadata_callback=None):
             route_decision_latency_ms=route_decision_latency_ms,
             retrieval_latency_ms=retrieval_latency_ms,
             llm_generation_latency_ms=llm_generation_latency_ms,
+            route_metadata=route_metadata,
         )
         if metadata_callback is not None:
             metadata_callback(
                 {
                     "retrieval_scope": get_retrieval_scope(session_id, chunks),
                     "response_explanation": build_response_explanation(session_id, route, chunks),
-                    "route_metadata": build_route_metadata(
-                        session_id,
-                        route,
-                        response_mode,
-                        chunks,
-                        route_reason=route_reason,
-                        route_confidence=route_confidence,
-                    ),
+                    "route_metadata": route_metadata,
                 }
             )
     except Exception as error:
